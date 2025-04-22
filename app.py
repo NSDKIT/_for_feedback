@@ -74,17 +74,23 @@ if uploaded_file is not None:
     
     # タブの作成
     tab_attributes, tab_yes_no, tab_free_answers, tab_analysis = st.tabs([
-        "回答者属性", "2択質問", "自由記述", "総合分析"
+        "1. 回答者属性", "2. 2択質問", "3. 自由記述", "4. 総合分析"
     ])
     
     # 1. 回答者属性タブ
     with tab_attributes:
-        st.header("回答者属性")
+        st.markdown("### 1. 回答者属性")
+        st.markdown("回答者の基本的な属性（学年、性別、学部系統）の分布を分析します。")
         
         # 属性タブの下のサブタブ
-        subtab_overview, subtab_details = st.tabs(["全体概要", "詳細分析"])
+        subtab_overview, subtab_details = st.tabs([
+            "1-1. 属性別分布", 
+            "1-2. クロス分析"
+        ])
         
         with subtab_overview:
+            st.markdown("#### 1-1. 属性別分布")
+            st.markdown("各属性（学年、性別、学部系統）の回答者分布を円グラフで表示します。")
             col1, col2, col3 = st.columns(3)
             for i, attr in enumerate(questions['attributes']):
                 col = [col1, col2, col3][i]
@@ -98,6 +104,8 @@ if uploaded_file is not None:
                     st.plotly_chart(fig, use_container_width=True)
         
         with subtab_details:
+            st.markdown("#### 1-2. クロス分析")
+            st.markdown("属性間の関係性を詳細に分析します。")
             # クロス集計や詳細な分析を表示
             for attr in questions['attributes']:
                 st.subheader(f"{attr}の詳細分析")
@@ -106,12 +114,18 @@ if uploaded_file is not None:
     
     # 2. 2択質問タブ
     with tab_yes_no:
-        st.header("2択質問の回答")
+        st.markdown("### 2. 2択質問の分析")
+        st.markdown("「はい/いいえ」で回答する質問の結果を分析します。")
         
         # 2択質問タブの下のサブタブ
-        subtab_charts, subtab_trends = st.tabs(["回答分布", "傾向分析"])
+        subtab_charts, subtab_trends = st.tabs([
+            "2-1. 回答分布", 
+            "2-2. 属性別傾向"
+        ])
         
         with subtab_charts:
+            st.markdown("#### 2-1. 回答分布")
+            st.markdown("各質問に対する「はい/いいえ」の回答分布を円グラフで表示します。")
             cols = st.columns(2)
             for i, question in enumerate(questions['yes_no']):
                 col = cols[i % 2]
@@ -135,6 +149,8 @@ if uploaded_file is not None:
                     st.plotly_chart(fig, use_container_width=True)
         
         with subtab_trends:
+            st.markdown("#### 2-2. 属性別傾向")
+            st.markdown("回答者の属性（学年、性別、学部系統）ごとの回答傾向を分析します。")
             # 属性ごとの回答傾向を分析
             for question in questions['yes_no']:
                 st.subheader(question)
@@ -146,10 +162,14 @@ if uploaded_file is not None:
     
     # 3. 自由記述タブ
     with tab_free_answers:
-        st.header("自由記述回答")
+        st.markdown("### 3. 自由記述回答の分析")
+        st.markdown("自由記述形式で回答された意見や感想を分析します。")
         
         # 自由記述タブの下のサブタブ
-        subtab_grouped, subtab_raw = st.tabs(["グループ化された回答", "個別回答"])
+        subtab_grouped, subtab_raw = st.tabs([
+            "3-1. 類似回答のグループ化", 
+            "3-2. 個別回答一覧"
+        ])
         
         # 自由記述回答の分析結果を保存
         free_text_analysis = {}
@@ -267,15 +287,20 @@ if uploaded_file is not None:
     
     # 4. 総合分析タブ
     with tab_analysis:
-        st.header("総合分析")
+        st.markdown("### 4. 総合分析・改善提案")
+        st.markdown("全ての回答データを統合的に分析し、改善案を提示します。")
         
         # 総合分析タブの下のサブタブ
         subtab_summary, subtab_strengths, subtab_challenges, subtab_actions = st.tabs([
-            "総合評価", "現状の強み", "主要な課題", "改善提案"
+            "4-1. 総合評価", 
+            "4-2. 現状の強み", 
+            "4-3. 主要な課題", 
+            "4-4. 改善提案"
         ])
         
         with subtab_summary:
-            st.subheader("総合評価")
+            st.markdown("#### 4-1. 総合評価")
+            st.markdown("動画全体の評価を主要な指標に基づいて分析します。")
             
             # 動画の視聴率（サムネイルの目立ち度）
             thumbnail_question = next((q for q in questions['yes_no'] if 'サムネイル' in q), None)
@@ -329,7 +354,8 @@ if uploaded_file is not None:
                 st.write(evaluation_result)
         
         with subtab_strengths:
-            st.subheader("現状の強み")
+            st.markdown("#### 4-2. 現状の強み")
+            st.markdown("採用動画の特に効果的な要素と成功している点を分析します。")
             
             # 印象の分析から強みを抽出
             impression_field = next((f for f in questions['free_answers'] if '印象' in f), None)
@@ -356,7 +382,8 @@ if uploaded_file is not None:
                     st.write(strengths_result)
         
         with subtab_challenges:
-            st.subheader("主要な課題")
+            st.markdown("#### 4-3. 主要な課題")
+            st.markdown("改善が必要な点や、視聴者が求める情報とのギャップを分析します。")
             
             # 欲しい情報の分析から課題を抽出
             desired_info_field = next((f for f in questions['free_answers'] if '情報' in f), None)
@@ -383,7 +410,8 @@ if uploaded_file is not None:
                     st.write(challenges_result)
         
         with subtab_actions:
-            st.subheader("改善提案とアクションプラン")
+            st.markdown("#### 4-4. 改善提案")
+            st.markdown("短期・中期・長期の具体的な改善案とアクションプランを提示します。")
             
             if 'challenges_result' in locals():
                 # 短期的な改善案
