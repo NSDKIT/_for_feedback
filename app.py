@@ -4,12 +4,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from collections import Counter
 import numpy as np
-from openai import OpenAI
+import openai
 import os
 
-# OpenAIクライアントの初期化
+# OpenAI APIキーの設定
 try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    openai.api_key = st.secrets["OPENAI_API_KEY"]
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
@@ -30,7 +30,7 @@ uploaded_file = st.file_uploader("CSVファイルをアップロード", type=['
 def analyze_with_openai(text, prompt):
     """OpenAI APIを使用してテキストを分析する"""
     try:
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "あなたは採用動画の分析の専門家です。与えられたデータから、客観的で具体的な分析を行ってください。"},
@@ -39,7 +39,7 @@ def analyze_with_openai(text, prompt):
             temperature=0.7,
             max_tokens=500
         )
-        return response.choices[0].message.content
+        return response.choices[0].message['content']
     except Exception as e:
         st.error(f"OpenAI APIの呼び出し中にエラーが発生しました: {str(e)}")
         return None
