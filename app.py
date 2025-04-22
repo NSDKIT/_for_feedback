@@ -127,34 +127,89 @@ if uploaded_file is not None:
         for field in questions['free_answers']:
             st.subheader(field)
             
+            # 回答の取得と前処理
             answers = df[field].dropna().tolist()
-            answer_counts = Counter(answers)
             total_responses = len(answers)
             
-            top_answers = answer_counts.most_common(5)
+            if total_responses > 0:
+                # 回答数の表示
+                st.markdown(f"**回答数: {total_responses}件**")
+                
+                # 類似回答のグループ化（AI活用）
+                grouping_prompt = """
+                以下の回答をいくつかのグループに分類し、各グループの代表的な回答と類似回答を示してください。
+                回答はできるだけ原文のまま使用し、要約や言い換えは避けてください。
+                出力形式:
+                {
+                    "groups": [
+                        {
+                            "theme": "グループのテーマ",
+                            "representative": "代表的な回答（原文）",
+                            "similar_count": 類似回答の数,
+                            "similar_responses": ["類似回答1（原文）", "類似回答2（原文）", ...]
+                        },
+                        ...
+                    ]
+                }
+                """
+                
+                # 回答をAIに送信（長すぎる場合は分割して処理）
+                MAX_ANSWERS_PER_BATCH = 50
+                all_groups = []
+                
+                for i in range(0, len(answers), MAX_ANSWERS_PER_BATCH):
+                    batch_answers = answers[i:i + MAX_ANSWERS_PER_BATCH]
+                    analysis_text = "\n".join([f"- {answer}" for answer in batch_answers])
+                    group_result = analyze_with_openai(analysis_text, grouping_prompt)
+                    
+                    if group_result:
+                        try:
+                            import json
+                            result_dict = json.loads(group_result)
+                            all_groups.extend(result_dict.get('groups', []))
+                        except:
+                            st.error("回答の分類中にエラーが発生しました。")
+                
+                if all_groups:
+                    # グループごとに表示
+                    for group in all_groups:
+                        st.markdown(f"##### {group['theme']}")
+                        
+                        # 代表的な回答を表示
+                        st.markdown("**代表的な回答:**")
+                        st.write(group['representative'])
+                        
+                        # 類似回答を表示
+                        if group['similar_responses']:
+                            st.markdown(f"**類似する回答 ({group['similar_count']}件):**")
+                            for response in group['similar_responses']:
+                                st.write(f"- {response}")
+                        
+                        st.write("---")
+                
+                # 分類されなかった回答（ユニークな意見）
+                all_grouped_answers = set()
+                for group in all_groups:
+                    all_grouped_answers.add(group['representative'])
+                    all_grouped_answers.update(group['similar_responses'])
+                
+                unique_answers = [ans for ans in answers if ans not in all_grouped_answers]
+                if unique_answers:
+                    st.markdown("##### ユニークな回答")
+                    sample_size = min(10, len(unique_answers))
+                    sample_unique = np.random.choice(unique_answers, size=sample_size, replace=False)
+                    for answer in sample_unique:
+                        st.write(f"- {answer}")
+            else:
+                st.info("このフィールドには回答がありません。")
             
-            # 分析結果を保存
+            # 分析結果を保存（総合分析タブで使用）
             free_text_analysis[field] = {
                 'total': total_responses,
-                'top_answers': top_answers,
-                'all_answers': answers
+                'all_answers': answers,
+                'grouped_answers': all_groups if total_responses > 0 else [],
+                'unique_answers': unique_answers if total_responses > 0 else []
             }
-            
-            for answer, count in top_answers:
-                percentage = (count / total_responses) * 100
-                st.write(f"「{answer}」 ({count}件, {percentage:.1f}%)")
-            
-            if total_responses > 0:
-                analysis_prompt = """
-                以下の自由記述回答を分析し、主な傾向や特徴をまとめてください。
-                回答の特徴やパターン、特に注目すべき点を具体的に指摘してください。
-                """
-                analysis_text = "\n".join([f"- {answer}" for answer in answers])
-                analysis_result = analyze_with_openai(analysis_text, analysis_prompt)
-                
-                if analysis_result:
-                    st.subheader("AIによる分析")
-                    st.write(analysis_result)
             
             st.write("---")
     
@@ -270,12 +325,16 @@ if uploaded_file is not None:
             if challenges_result:
                 st.write(challenges_result)
         
-        # 改善提案
+        # 改善提案とアクションプラン
         st.subheader("4. 改善提案とアクションプラン")
         
-        # 改善提案のテキスト生成
         if 'challenges_result' in locals():
-            improvement_text = f"""
+            # 短期的な改善案
+            st.markdown("#### 短期的な改善案（1-3ヶ月）")
+            short_term_prompt = f"""
+            以下の課題と指標に基づいて、短期的（1-3ヶ月）な改善案を提示してください。
+            すぐに着手可能で、比較的早く効果が出る施策を優先的に提案してください。
+            
             主な課題:
             {challenges_result}
             
@@ -283,18 +342,40 @@ if uploaded_file is not None:
             - 引き込み力: {intro_percentage:.1f}%
             - 応募意向: {apply_percentage:.1f}%
             """
+            short_term_result = analyze_with_openai(short_term_prompt, "短期的な改善案を提案してください。")
+            if short_term_result:
+                st.write(short_term_result)
             
-            # OpenAIによる改善提案とアクションプランの分析
-            improvement_prompt = """
-            以下の課題と指標に基づいて、具体的な改善提案とアクションプランを提示してください。
+            # 中期的な改善案
+            st.markdown("#### 中期的な改善案（3-6ヶ月）")
+            mid_term_prompt = f"""
+            以下の課題と指標に基づいて、中期的（3-6ヶ月）な改善案を提示してください。
+            準備に時間がかかるが、より本質的な改善につながる施策を提案してください。
             
-            1. 短期的な改善案（1-3ヶ月）
-            2. 中期的な改善案（3-6ヶ月）
-            3. 長期的な改善案（6ヶ月-1年）
+            主な課題:
+            {challenges_result}
             
-            それぞれの期間で、優先順位の高い具体的なアクションを提案してください。
+            現在の指標:
+            - 引き込み力: {intro_percentage:.1f}%
+            - 応募意向: {apply_percentage:.1f}%
             """
-            improvement_result = analyze_with_openai(improvement_text, improvement_prompt)
+            mid_term_result = analyze_with_openai(mid_term_prompt, "中期的な改善案を提案してください。")
+            if mid_term_result:
+                st.write(mid_term_result)
             
-            if improvement_result:
-                st.write(improvement_result) 
+            # 長期的な改善案
+            st.markdown("#### 長期的な改善案（6ヶ月-1年）")
+            long_term_prompt = f"""
+            以下の課題と指標に基づいて、長期的（6ヶ月-1年）な改善案を提示してください。
+            採用動画の根本的な改善や、採用戦略全体の見直しにつながる施策を提案してください。
+            
+            主な課題:
+            {challenges_result}
+            
+            現在の指標:
+            - 引き込み力: {intro_percentage:.1f}%
+            - 応募意向: {apply_percentage:.1f}%
+            """
+            long_term_result = analyze_with_openai(long_term_prompt, "長期的な改善案を提案してください。")
+            if long_term_result:
+                st.write(long_term_result) 
