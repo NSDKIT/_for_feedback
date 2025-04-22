@@ -31,7 +31,7 @@ def analyze_with_openai(text, prompt):
     """OpenAI APIを使用してテキストを分析する"""
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "あなたは採用動画の分析の専門家です。与えられたデータから、客観的で具体的な分析を行ってください。"},
                 {"role": "user", "content": f"{prompt}\n\n分析対象:\n{text}"}
@@ -50,7 +50,7 @@ def extract_questions(df):
     attribute_columns = ['学年', '性別', '学部系統']
     
     # はい/いいえ質問の列名を抽出
-    yes_no_columns = [col for col in df.columns if col.endswith('か？')]
+    yes_no_columns = [col for col in df.columns if col.endswith('⚫︎')]
     
     # 自由記述回答の列名を抽出
     free_answer_columns = [col for col in df.columns if col not in attribute_columns and col not in yes_no_columns]
