@@ -12,10 +12,10 @@ import os
 load_dotenv()
 
 # OpenAI APIキーの設定
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 if not openai.api_key:
-    st.error("OpenAI APIキーが設定されていません。.envファイルにOPENAI_API_KEYを設定してください。")
+    st.error("OpenAI APIキーが設定されていません。Streamlit SecretsにOPENAI_API_KEYを設定してください。")
     st.stop()
 
 # ページ設定
