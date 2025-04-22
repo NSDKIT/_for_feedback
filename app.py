@@ -6,6 +6,7 @@ from collections import Counter
 import numpy as np
 import openai
 import os
+import json
 
 # OpenAI APIキーの設定
 try:
@@ -31,13 +32,13 @@ def analyze_with_openai(text, prompt):
     """OpenAI APIを使用してテキストを分析する"""
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "あなたは採用動画の分析の専門家です。与えられたデータから、客観的で具体的な分析を行ってください。"},
                 {"role": "user", "content": f"{prompt}\n\n分析対象:\n{text}"}
             ],
-            temperature=0.7,
-            max_tokens=500
+            temperature=0.3,  # より決定論的な応答に
+            max_tokens=2000   # トークン数を増やす
         )
         return response.choices[0].message['content']
     except Exception as e:
@@ -137,24 +138,25 @@ if uploaded_file is not None:
                 
                 # 類似回答のグループ化（AI活用）
                 grouping_prompt = """
-                以下の回答をいくつかのグループに分類し、各グループの代表的な回答と類似回答を示してください。
-                回答はできるだけ原文のまま使用し、要約や言い換えは避けてください。
-                出力形式:
+                以下の回答を意味的な類似性に基づいて3-5個のグループに分類してください。
+                各グループには、そのグループを代表する回答と、類似する他の回答を含めてください。
+                回答は原文のまま使用し、要約や言い換えは避けてください。
+
+                出力は以下のJSON形式で返してください：
                 {
                     "groups": [
                         {
-                            "theme": "グループのテーマ",
-                            "representative": "代表的な回答（原文）",
-                            "similar_count": 類似回答の数,
-                            "similar_responses": ["類似回答1（原文）", "類似回答2（原文）", ...]
-                        },
-                        ...
+                            "theme": "グループを表す短いテーマ",
+                            "representative": "最も代表的な回答（原文）",
+                            "similar_responses": ["類似回答1", "類似回答2", ...],
+                            "similar_count": 類似回答の数
+                        }
                     ]
                 }
                 """
                 
                 # 回答をAIに送信（長すぎる場合は分割して処理）
-                MAX_ANSWERS_PER_BATCH = 50
+                MAX_ANSWERS_PER_BATCH = 30  # バッチサイズを減らす
                 all_groups = []
                 
                 for i in range(0, len(answers), MAX_ANSWERS_PER_BATCH):
@@ -164,25 +166,38 @@ if uploaded_file is not None:
                     
                     if group_result:
                         try:
-                            import json
-                            result_dict = json.loads(group_result)
-                            all_groups.extend(result_dict.get('groups', []))
-                        except:
-                            st.error("回答の分類中にエラーが発生しました。")
+                            # JSONの前後の余分な文字列を削除
+                            json_str = group_result.strip()
+                            if not json_str.startswith('{'):
+                                json_str = json_str[json_str.find('{'):]
+                            if not json_str.endswith('}'):
+                                json_str = json_str[:json_str.rfind('}')+1]
+                            
+                            result_dict = json.loads(json_str)
+                            if 'groups' in result_dict:
+                                all_groups.extend(result_dict['groups'])
+                        except json.JSONDecodeError as e:
+                            st.error(f"回答の分類中にJSONパースエラーが発生しました: {str(e)}")
+                            continue
+                        except Exception as e:
+                            st.error(f"回答の分類中に予期せぬエラーが発生しました: {str(e)}")
+                            continue
                 
                 if all_groups:
                     # グループごとに表示
                     for group in all_groups:
-                        st.markdown(f"##### {group['theme']}")
+                        st.markdown(f"##### {group.get('theme', '未分類グループ')}")
                         
                         # 代表的な回答を表示
                         st.markdown("**代表的な回答:**")
-                        st.write(group['representative'])
+                        st.write(group.get('representative', ''))
                         
                         # 類似回答を表示
-                        if group['similar_responses']:
-                            st.markdown(f"**類似する回答 ({group['similar_count']}件):**")
-                            for response in group['similar_responses']:
+                        similar_responses = group.get('similar_responses', [])
+                        if similar_responses:
+                            similar_count = len(similar_responses)
+                            st.markdown(f"**類似する回答 ({similar_count}件):**")
+                            for response in similar_responses:
                                 st.write(f"- {response}")
                         
                         st.write("---")
@@ -190,8 +205,8 @@ if uploaded_file is not None:
                 # 分類されなかった回答（ユニークな意見）
                 all_grouped_answers = set()
                 for group in all_groups:
-                    all_grouped_answers.add(group['representative'])
-                    all_grouped_answers.update(group['similar_responses'])
+                    all_grouped_answers.add(group.get('representative', ''))
+                    all_grouped_answers.update(group.get('similar_responses', []))
                 
                 unique_answers = [ans for ans in answers if ans not in all_grouped_answers]
                 if unique_answers:
