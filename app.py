@@ -13,9 +13,13 @@ load_dotenv()
 
 # OpenAIクライアントの初期化
 try:
-    client = OpenAI(api_key=st.secrets.OPENAI_API_KEY)
+    api_key = st.secrets["OPENAI_API_KEY"]
+    if not api_key:
+        st.error("OpenAI APIキーが設定されていません。Streamlit SecretsにOPENAI_API_KEYを設定してください。")
+        st.stop()
+    client = OpenAI(api_key=api_key)
 except Exception as e:
-    st.error(f"OpenAI APIキーが正しく設定されていません。Streamlit SecretsにOPENAI_API_KEYを設定してください。エラー: {e}")
+    st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
 
 # ページ設定
