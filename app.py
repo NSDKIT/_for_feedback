@@ -9,11 +9,7 @@ import os
 
 # OpenAIクライアントの初期化
 try:
-    api_key = st.secrets["OPENAI_API_KEY"]
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://api.openai.com/v1"
-    )
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
