@@ -49,8 +49,8 @@ def extract_questions(df):
     # 属性情報の列名
     attribute_columns = ['学年', '性別', '学部系統']
     
-    # はい/いいえ質問の列名を抽出
-    yes_no_columns = [col for col in df.columns if col.endswith('⚫︎')]
+    # はい/いいえ質問の列名を抽出（文頭が⚫︎で始まる列）
+    yes_no_columns = [col for col in df.columns if col.startswith('⚫︎')]
     
     # 自由記述回答の列名を抽出
     free_answer_columns = [col for col in df.columns if col not in attribute_columns and col not in yes_no_columns]
@@ -68,94 +68,93 @@ if uploaded_file is not None:
     # 質問項目の抽出
     questions = extract_questions(df)
     
-    # 回答者属性の集計
-    st.header("1. 回答者属性")
+    # タブの作成
+    tab_attributes, tab_yes_no, tab_free_answers, tab_others = st.tabs([
+        "回答者属性", "2択質問", "自由記述", "その他"
+    ])
     
-    col1, col2, col3 = st.columns(3)
+    # 1. 回答者属性タブ
+    with tab_attributes:
+        st.header("回答者属性")
+        col1, col2, col3 = st.columns(3)
+        
+        for i, attr in enumerate(questions['attributes']):
+            col = [col1, col2, col3][i]
+            with col:
+                counts = df[attr].value_counts()
+                fig = px.pie(
+                    values=counts.values,
+                    names=counts.index,
+                    title=f'{attr}分布'
+                )
+                st.plotly_chart(fig, use_container_width=True)
     
-    for i, attr in enumerate(questions['attributes']):
-        col = [col1, col2, col3][i]
-        with col:
-            # 分布の集計
-            counts = df[attr].value_counts()
-            fig = px.pie(
-                values=counts.values,
-                names=counts.index,
-                title=f'{attr}分布'
-            )
-            st.plotly_chart(fig, use_container_width=True)
+    # 2. 2択質問タブ
+    with tab_yes_no:
+        st.header("2択質問の回答")
+        cols = st.columns(2)
+        for i, question in enumerate(questions['yes_no']):
+            col = cols[i % 2]
+            with col:
+                yes_count = (df[question] == 'はい').sum()
+                no_count = (df[question] == 'いいえ').sum()
+                total = yes_count + no_count
+                yes_percentage = (yes_count / total) * 100
+                
+                fig = go.Figure(data=[go.Pie(
+                    labels=['はい', 'いいえ'],
+                    values=[yes_count, no_count],
+                    marker_colors=['#4CAF50', '#F44336']
+                )])
+                
+                fig.update_layout(
+                    title=f"{question}<br>はい: {yes_percentage:.1f}%",
+                    showlegend=True
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
     
-    # はい/いいえ質問の結果
-    st.header("2. 質問回答（はい/いいえ）")
-    
-    # 2列のグリッドで表示
-    cols = st.columns(2)
-    for i, question in enumerate(questions['yes_no']):
-        col = cols[i % 2]
-        with col:
-            # はい/いいえの集計
-            yes_count = (df[question] == 'はい').sum()
-            no_count = (df[question] == 'いいえ').sum()
-            total = yes_count + no_count
-            yes_percentage = (yes_count / total) * 100
+    # 3. 自由記述タブ
+    with tab_free_answers:
+        st.header("自由記述回答")
+        
+        for field in questions['free_answers']:
+            st.subheader(field)
             
-            # 円グラフの作成
-            fig = go.Figure(data=[go.Pie(
-                labels=['はい', 'いいえ'],
-                values=[yes_count, no_count],
-                marker_colors=['#4CAF50', '#F44336']
-            )])
+            answers = df[field].dropna().tolist()
+            answer_counts = Counter(answers)
+            total_responses = len(answers)
             
-            fig.update_layout(
-                title=f"{question}<br>はい: {yes_percentage:.1f}%",
-                showlegend=True
-            )
+            top_answers = answer_counts.most_common(5)
             
-            st.plotly_chart(fig, use_container_width=True)
-    
-    # 自由記述回答の分析
-    st.header("3. 自由記述回答の分析")
-    
-    # 自由記述回答の集計を保存
-    free_text_analysis = {}
-    
-    for field in questions['free_answers']:
-        st.subheader(field)
-        
-        # 回答の集計
-        answers = df[field].dropna().tolist()
-        answer_counts = Counter(answers)
-        total_responses = len(answers)
-        
-        # 上位5件を表示
-        top_answers = answer_counts.most_common(5)
-        
-        # 分析結果を保存
-        free_text_analysis[field] = {
-            'total': total_responses,
-            'top_answers': top_answers,
-            'all_answers': answers
-        }
-        
-        for answer, count in top_answers:
-            percentage = (count / total_responses) * 100
-            st.write(f"「{answer}」 ({count}件, {percentage:.1f}%)")
-        
-        # OpenAIによる分析
-        if total_responses > 0:
-            analysis_prompt = f"""
-            以下の自由記述回答を分析し、主な傾向や特徴をまとめてください。
-            回答の特徴やパターン、特に注目すべき点を具体的に指摘してください。
-            """
-            analysis_text = "\n".join([f"- {answer}" for answer in answers])
-            analysis_result = analyze_with_openai(analysis_text, analysis_prompt)
+            for answer, count in top_answers:
+                percentage = (count / total_responses) * 100
+                st.write(f"「{answer}」 ({count}件, {percentage:.1f}%)")
             
-            if analysis_result:
-                st.subheader("AIによる分析")
-                st.write(analysis_result)
-        
-        st.write("---")
+            if total_responses > 0:
+                analysis_prompt = """
+                以下の自由記述回答を分析し、主な傾向や特徴をまとめてください。
+                回答の特徴やパターン、特に注目すべき点を具体的に指摘してください。
+                """
+                analysis_text = "\n".join([f"- {answer}" for answer in answers])
+                analysis_result = analyze_with_openai(analysis_text, analysis_prompt)
+                
+                if analysis_result:
+                    st.subheader("AIによる分析")
+                    st.write(analysis_result)
+            
+            st.write("---")
     
+    # 4. その他タブ
+    with tab_others:
+        st.header("その他の項目")
+        if questions['others']:
+            for field in questions['others']:
+                st.subheader(field)
+                st.write(df[field].value_counts())
+        else:
+            st.info("その他の項目はありません")
+
     # 総合分析と提言
     st.header("4. 総合分析と提言")
     
