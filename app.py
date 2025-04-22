@@ -31,7 +31,7 @@ def analyze_with_openai(text, prompt):
     """OpenAI APIを使用してテキストを分析する"""
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": "あなたは採用動画の分析の専門家です。与えられたデータから、客観的で具体的な分析を行ってください。"},
                 {"role": "user", "content": f"{prompt}\n\n分析対象:\n{text}"}
