@@ -4,17 +4,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 from collections import Counter
 import numpy as np
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 import os
 
 # 環境変数の読み込み
 load_dotenv()
 
-# OpenAI APIキーの設定
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+# OpenAIクライアントの初期化
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-if not openai.api_key:
+if not st.secrets["OPENAI_API_KEY"]:
     st.error("OpenAI APIキーが設定されていません。Streamlit SecretsにOPENAI_API_KEYを設定してください。")
     st.stop()
 
@@ -34,7 +34,7 @@ uploaded_file = st.file_uploader("CSVファイルをアップロード", type=['
 def analyze_with_openai(text, prompt):
     """OpenAI APIを使用してテキストを分析する"""
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "あなたは採用動画の分析の専門家です。与えられたデータから、客観的で具体的な分析を行ってください。"},
