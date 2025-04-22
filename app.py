@@ -5,19 +5,11 @@ import plotly.graph_objects as go
 from collections import Counter
 import numpy as np
 from openai import OpenAI
-from dotenv import load_dotenv
 import os
-
-# 環境変数の読み込み
-load_dotenv()
 
 # OpenAIクライアントの初期化
 try:
-    api_key = st.secrets["OPENAI_API_KEY"]
-    if not api_key:
-        st.error("OpenAI APIキーが設定されていません。Streamlit SecretsにOPENAI_API_KEYを設定してください。")
-        st.stop()
-    client = OpenAI(api_key=api_key)
+    client = OpenAI()  # デフォルトでst.secretsから"OPENAI_API_KEY"を読み込みます
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
