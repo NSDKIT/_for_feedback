@@ -126,10 +126,12 @@ if uploaded_file is not None:
         with subtab_charts:
             st.markdown("#### 2-1. 回答分布")
             st.markdown("各質問に対する「はい/いいえ」の回答分布を円グラフで表示します。")
-            cols = st.columns(2)
-            for i, question in enumerate(questions['yes_no']):
-                col = cols[i % 2]
-                with col:
+            
+            # 質問ごとのサブタブを作成
+            question_tabs = st.tabs([f"Q{i+1}: {q}" for i, q in enumerate(questions['yes_no'])])
+            
+            for i, (question, tab) in enumerate(zip(questions['yes_no'], question_tabs)):
+                with tab:
                     yes_count = (df[question] == 'はい').sum()
                     no_count = (df[question] == 'いいえ').sum()
                     total = yes_count + no_count
@@ -142,7 +144,7 @@ if uploaded_file is not None:
                     )])
                     
                     fig.update_layout(
-                        title=f"{question}<br>はい: {yes_percentage:.1f}%",
+                        title=f"はい: {yes_percentage:.1f}%",
                         showlegend=True
                     )
                     
@@ -151,14 +153,18 @@ if uploaded_file is not None:
         with subtab_trends:
             st.markdown("#### 2-2. 属性別傾向")
             st.markdown("回答者の属性（学年、性別、学部系統）ごとの回答傾向を分析します。")
-            # 属性ごとの回答傾向を分析
-            for question in questions['yes_no']:
-                st.subheader(question)
-                for attr in questions['attributes']:
-                    st.write(f"{attr}別の回答分布:")
-                    cross_tab = pd.crosstab(df[attr], df[question], normalize='index') * 100
-                    st.write(cross_tab.round(1))
-                st.write("---")
+            
+            # 質問ごとのサブタブを作成
+            question_tabs = st.tabs([f"Q{i+1}: {q}" for i, q in enumerate(questions['yes_no'])])
+            
+            for i, (question, tab) in enumerate(zip(questions['yes_no'], question_tabs)):
+                with tab:
+                    st.markdown(f"##### {question}")
+                    for attr in questions['attributes']:
+                        st.markdown(f"**{attr}別の回答分布:**")
+                        cross_tab = pd.crosstab(df[attr], df[question], normalize='index') * 100
+                        st.write(cross_tab.round(1))
+                        st.write("---")
     
     # 3. 自由記述タブ
     with tab_free_answers:
@@ -174,116 +180,121 @@ if uploaded_file is not None:
         # 自由記述回答の分析結果を保存
         free_text_analysis = {}
         
-        for field in questions['free_answers']:
-            # 回答の取得と前処理
-            answers = df[field].dropna().tolist()
-            total_responses = len(answers)
-            
-            if total_responses > 0:
-                with subtab_grouped:
-                    st.subheader(field)
-                    st.markdown(f"**回答数: {total_responses}件**")
-                    
-                    # 類似回答のグループ化（AI活用）
-                    grouping_prompt = """
-                    以下の回答を意味的な類似性に基づいて3-5個のグループに分類してください。
-                    各グループには、そのグループを代表する回答と、類似する他の回答を含めてください。
-                    回答は原文のまま使用し、要約や言い換えは避けてください。
-
-                    出力は以下のJSON形式で返してください：
-                    {
-                        "groups": [
-                            {
-                                "theme": "グループを表す短いテーマ",
-                                "representative": "最も代表的な回答（原文）",
-                                "similar_responses": ["類似回答1", "類似回答2", ...],
-                                "similar_count": 類似回答の数
-                            }
-                        ]
-                    }
-                    """
-                    
-                    # 回答をAIに送信（長すぎる場合は分割して処理）
-                    MAX_ANSWERS_PER_BATCH = 30  # バッチサイズを減らす
-                    all_groups = []
-                    
-                    for i in range(0, len(answers), MAX_ANSWERS_PER_BATCH):
-                        batch_answers = answers[i:i + MAX_ANSWERS_PER_BATCH]
-                        analysis_text = "\n".join([f"- {answer}" for answer in batch_answers])
-                        group_result = analyze_with_openai(analysis_text, grouping_prompt)
+        # 質問ごとのサブタブを作成
+        question_tabs = st.tabs([f"Q{i+1}: {q}" for i, q in enumerate(questions['free_answers'])])
+        
+        for i, (field, tab) in enumerate(zip(questions['free_answers'], question_tabs)):
+            with tab:
+                # 回答の取得と前処理
+                answers = df[field].dropna().tolist()
+                total_responses = len(answers)
+                
+                if total_responses > 0:
+                    with subtab_grouped:
+                        st.markdown(f"##### {field}")
+                        st.markdown(f"**回答数: {total_responses}件**")
                         
-                        if group_result:
-                            try:
-                                # JSONの前後の余分な文字列を削除
-                                json_str = group_result.strip()
-                                if not json_str.startswith('{'):
-                                    json_str = json_str[json_str.find('{'):]
-                                if not json_str.endswith('}'):
-                                    json_str = json_str[:json_str.rfind('}')+1]
+                        # 類似回答のグループ化（AI活用）
+                        grouping_prompt = """
+                        以下の回答を意味的な類似性に基づいて3-5個のグループに分類してください。
+                        各グループには、そのグループを代表する回答と、類似する他の回答を含めてください。
+                        回答は原文のまま使用し、要約や言い換えは避けてください。
+
+                        出力は以下のJSON形式で返してください：
+                        {
+                            "groups": [
+                                {
+                                    "theme": "グループを表す短いテーマ",
+                                    "representative": "最も代表的な回答（原文）",
+                                    "similar_responses": ["類似回答1", "類似回答2", ...],
+                                    "similar_count": 類似回答の数
+                                }
+                            ]
+                        }
+                        """
+                        
+                        # 回答をAIに送信（長すぎる場合は分割して処理）
+                        MAX_ANSWERS_PER_BATCH = 30  # バッチサイズを減らす
+                        all_groups = []
+                        
+                        for j in range(0, len(answers), MAX_ANSWERS_PER_BATCH):
+                            batch_answers = answers[j:j + MAX_ANSWERS_PER_BATCH]
+                            analysis_text = "\n".join([f"- {answer}" for answer in batch_answers])
+                            group_result = analyze_with_openai(analysis_text, grouping_prompt)
+                            
+                            if group_result:
+                                try:
+                                    # JSONの前後の余分な文字列を削除
+                                    json_str = group_result.strip()
+                                    if not json_str.startswith('{'):
+                                        json_str = json_str[json_str.find('{'):]
+                                    if not json_str.endswith('}'):
+                                        json_str = json_str[:json_str.rfind('}')+1]
+                                    
+                                    result_dict = json.loads(json_str)
+                                    if 'groups' in result_dict:
+                                        all_groups.extend(result_dict['groups'])
+                                except json.JSONDecodeError as e:
+                                    st.error(f"回答の分類中にJSONパースエラーが発生しました: {str(e)}")
+                                    continue
+                                except Exception as e:
+                                    st.error(f"回答の分類中に予期せぬエラーが発生しました: {str(e)}")
+                                    continue
+                        
+                        if all_groups:
+                            # グループごとに表示
+                            for group in all_groups:
+                                st.markdown(f"##### {group.get('theme', '未分類グループ')}")
                                 
-                                result_dict = json.loads(json_str)
-                                if 'groups' in result_dict:
-                                    all_groups.extend(result_dict['groups'])
-                            except json.JSONDecodeError as e:
-                                st.error(f"回答の分類中にJSONパースエラーが発生しました: {str(e)}")
-                                continue
-                            except Exception as e:
-                                st.error(f"回答の分類中に予期せぬエラーが発生しました: {str(e)}")
-                                continue
-                    
-                    if all_groups:
-                        # グループごとに表示
-                        for group in all_groups:
-                            st.markdown(f"##### {group.get('theme', '未分類グループ')}")
-                            
-                            # 代表的な回答を表示
-                            st.markdown("**代表的な回答:**")
-                            st.write(group.get('representative', ''))
-                            
-                            # 類似回答を表示
-                            similar_responses = group.get('similar_responses', [])
-                            if similar_responses:
-                                similar_count = len(similar_responses)
-                                st.markdown(f"**類似する回答 ({similar_count}件):**")
-                                for response in similar_responses:
-                                    st.write(f"- {response}")
+                                # 代表的な回答を表示
+                                st.markdown("**代表的な回答:**")
+                                st.write(group.get('representative', ''))
+                                
+                                # 類似回答を表示
+                                similar_responses = group.get('similar_responses', [])
+                                if similar_responses:
+                                    similar_count = len(similar_responses)
+                                    st.markdown(f"**類似する回答 ({similar_count}件):**")
+                                    for response in similar_responses:
+                                        st.write(f"- {response}")
                             
                             st.write("---")
+                        
+                        # 分類されなかった回答（ユニークな意見）
+                        all_grouped_answers = set()
+                        for group in all_groups:
+                            all_grouped_answers.add(group.get('representative', ''))
+                            all_grouped_answers.update(group.get('similar_responses', []))
+                        
+                        unique_answers = [ans for ans in answers if ans not in all_grouped_answers]
+                        if unique_answers:
+                            st.markdown("##### ユニークな回答")
+                            sample_size = min(10, len(unique_answers))
+                            sample_unique = np.random.choice(unique_answers, size=sample_size, replace=False)
+                            for answer in sample_unique:
+                                st.write(f"- {answer}")
                     
-                    # 分類されなかった回答（ユニークな意見）
-                    all_grouped_answers = set()
-                    for group in all_groups:
-                        all_grouped_answers.add(group.get('representative', ''))
-                        all_grouped_answers.update(group.get('similar_responses', []))
-                    
-                    unique_answers = [ans for ans in answers if ans not in all_grouped_answers]
-                    if unique_answers:
-                        st.markdown("##### ユニークな回答")
-                        sample_size = min(10, len(unique_answers))
-                        sample_unique = np.random.choice(unique_answers, size=sample_size, replace=False)
-                        for answer in sample_unique:
-                            st.write(f"- {answer}")
-                with subtab_raw:
-                    st.subheader(field)
-                    st.markdown(f"**回答数: {total_responses}件**")
-                    # 全ての回答をそのまま表示
-                    for i, answer in enumerate(answers, 1):
-                        st.write(f"{i}. {answer}")
-            else:
-                with subtab_grouped:
-                    st.info("このフィールドには回答がありません。")
-                with subtab_raw:
-                    st.info("このフィールドには回答がありません。")
-            
-            # 分析結果を保存（総合分析タブで使用）
-            free_text_analysis[field] = {
-                'total': total_responses,
-                'all_answers': answers,
-                'grouped_answers': all_groups if total_responses > 0 else [],
-                'unique_answers': unique_answers if total_responses > 0 else []
-            }
-            
-            st.write("---")
+                    with subtab_raw:
+                        st.markdown(f"##### {field}")
+                        st.markdown(f"**回答数: {total_responses}件**")
+                        # 全ての回答をそのまま表示
+                        for j, answer in enumerate(answers, 1):
+                            st.write(f"{j}. {answer}")
+                else:
+                    with subtab_grouped:
+                        st.info("このフィールドには回答がありません。")
+                    with subtab_raw:
+                        st.info("このフィールドには回答がありません。")
+                
+                # 分析結果を保存（総合分析タブで使用）
+                free_text_analysis[field] = {
+                    'total': total_responses,
+                    'all_answers': answers,
+                    'grouped_answers': all_groups if total_responses > 0 else [],
+                    'unique_answers': unique_answers if total_responses > 0 else []
+                }
+                
+                st.write("---")
     
     # 4. 総合分析タブ
     with tab_analysis:
