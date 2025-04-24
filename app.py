@@ -47,8 +47,8 @@ def analyze_with_openai(text, prompt):
 
 def extract_questions(df):
     """CSVファイルから質問項目を抽出する"""
-    # 属性情報の列名
-    attribute_columns = ['学年', '性別', '学部系統']
+    # 属性情報の列名（▪︎を含む列）
+    attribute_columns = [col for col in df.columns if '▪︎' in col]
     
     # はい/いいえ質問の列名を抽出（文頭が⚫︎で始まる列）
     yes_no_columns = [col for col in df.columns if col.startswith('⚫︎')]
