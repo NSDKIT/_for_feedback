@@ -109,11 +109,20 @@ if uploaded_file is not None:
         with subtab_details:
             st.markdown("#### 1-2. クロス分析")
             st.markdown("属性間の関係性を詳細に分析します。")
-            # クロス集計や詳細な分析を表示
-            for attr in questions['attributes']:
-                st.subheader(f"{attr}の詳細分析")
-                st.write(df[attr].value_counts())
-                st.write("---")
+            
+            # 属性ごとに3列で表示
+            for i in range(0, len(questions['attributes']), 3):
+                # 3列のコンテナを作成
+                cols = st.columns(3)
+                
+                # 3つの属性を表示
+                for j in range(3):
+                    if i + j < len(questions['attributes']):
+                        attr = questions['attributes'][i + j]
+                        with cols[j]:
+                            st.markdown(f"**{attr}の詳細分析**")
+                            st.write(df[attr].value_counts())
+                            st.write("---")
     
     # 2. 2択質問タブ
     with tab_yes_no:
