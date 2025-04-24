@@ -91,10 +91,13 @@ if uploaded_file is not None:
         with subtab_overview:
             st.markdown("#### 1-1. 属性別分布")
             st.markdown("各属性（学年、性別、学部系統）の回答者分布を円グラフで表示します。")
-            col1, col2, col3 = st.columns(3)
+            
+            # 属性情報の列数に応じて動的に列を生成
+            num_attributes = len(questions['attributes'])
+            cols = st.columns(num_attributes)
+            
             for i, attr in enumerate(questions['attributes']):
-                col = [col1, col2, col3][i]
-                with col:
+                with cols[i]:
                     counts = df[attr].value_counts()
                     fig = px.pie(
                         values=counts.values,
