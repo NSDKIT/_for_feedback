@@ -174,12 +174,6 @@ if uploaded_file is not None:
         st.markdown("### 3. 自由記述回答の分析")
         st.markdown("自由記述形式で回答された意見や感想を分析します。")
         
-        # 自由記述タブの下のサブタブ
-        subtab_grouped, subtab_raw = st.tabs([
-            "3-1. 類似回答のグループ化", 
-            "3-2. 個別回答一覧"
-        ])
-        
         # 自由記述回答の分析結果を保存
         free_text_analysis = {}
         
@@ -193,6 +187,12 @@ if uploaded_file is not None:
                 total_responses = len(answers)
                 
                 if total_responses > 0:
+                    # 自由記述タブの下のサブタブ
+                    subtab_grouped, subtab_raw = st.tabs([
+                        f"3-1. 類似回答のグループ化 ({field})", 
+                        f"3-2. 個別回答一覧 ({field})"
+                    ])
+                    
                     with subtab_grouped:
                         st.markdown(f"##### {field}")
                         st.markdown(f"**回答数: {total_responses}件**")
@@ -260,8 +260,8 @@ if uploaded_file is not None:
                                     st.markdown(f"**類似する回答 ({similar_count}件):**")
                                     for response in similar_responses:
                                         st.write(f"- {response}")
-                            
-                            st.write("---")
+                                
+                                st.write("---")
                         
                         # 分類されなかった回答（ユニークな意見）
                         all_grouped_answers = set()
@@ -284,10 +284,7 @@ if uploaded_file is not None:
                         for j, answer in enumerate(answers, 1):
                             st.write(f"{j}. {answer}")
                 else:
-                    with subtab_grouped:
-                        st.info("このフィールドには回答がありません。")
-                    with subtab_raw:
-                        st.info("このフィールドには回答がありません。")
+                    st.info("このフィールドには回答がありません。")
                 
                 # 分析結果を保存（総合分析タブで使用）
                 free_text_analysis[field] = {
