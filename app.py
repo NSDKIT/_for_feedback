@@ -1,12 +1,20 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from scipy.stats import chi2_contingency
+import networkx as nx
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+import japanize_matplotlib
+import seaborn as sns
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import re
 from collections import Counter
-import numpy as np
-import openai
-import os
-import json
+import itertools
 
 # OpenAI APIキーの設定
 try:
@@ -22,412 +30,278 @@ st.set_page_config(
     layout="wide"
 )
 
+# 日本語フォントの設定
+plt.rcParams['font.family'] = 'Hiragino Sans'
+
+def preprocess_text(text_series):
+    """テキストデータの前処理"""
+    # NaNを空文字列に変換
+    text_series = text_series.fillna('')
+    
+    # 全角英数字を半角に変換
+    text_series = text_series.str.translate(str.maketrans(
+        'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ０１２３４５６７８９',
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    ))
+    
+    # 不要な文字を削除
+    text_series = text_series.str.replace(r'[^\w\s]', '', regex=True)
+    
+    return text_series
+
+def extract_themes(text_series, n_themes=5):
+    """テーマの抽出"""
+    # テキストを単語に分割
+    words = ' '.join(text_series).split()
+    
+    # 単語の出現頻度をカウント
+    word_counts = Counter(words)
+    
+    # 上位n_themes個のテーマを抽出
+    themes = [word for word, count in word_counts.most_common(n_themes)]
+    
+    return themes
+
+def build_co_occurrence_network(text_series, window_size=2):
+    """共起ネットワークの構築"""
+    # テキストを単語に分割
+    words = ' '.join(text_series).split()
+    
+    # 共起関係をカウント
+    co_occurrence = {}
+    for i in range(len(words)):
+        for j in range(i+1, min(i+window_size+1, len(words))):
+            pair = tuple(sorted([words[i], words[j]]))
+            co_occurrence[pair] = co_occurrence.get(pair, 0) + 1
+    
+    return co_occurrence
+
+def analyze_attributes(df, attributes):
+    """属性データの分析"""
+    # 1. 基本統計量の計算
+    stats = df[attributes].describe()
+    
+    # 2. クロス集計
+    cross_tabs = {}
+    for attr1, attr2 in itertools.combinations(attributes, 2):
+        cross_tabs[f"{attr1}_vs_{attr2}"] = pd.crosstab(df[attr1], df[attr2])
+    
+    # 3. 相関分析
+    correlation = df[attributes].corr()
+    
+    return stats, cross_tabs, correlation
+
+def analyze_yes_no_questions(df, yes_no_questions, attributes):
+    """2択質問の分析"""
+    # 1. 回答分布の集計
+    response_dist = {}
+    for question in yes_no_questions:
+        response_dist[question] = df[question].value_counts(normalize=True)
+    
+    # 2. 属性別の傾向分析
+    trend_analysis = {}
+    for question in yes_no_questions:
+        for attribute in attributes:
+            trend_analysis[f"{question}_by_{attribute}"] = pd.crosstab(
+                df[attribute], 
+                df[question], 
+                normalize='index'
+            )
+    
+    # 3. カイ二乗検定
+    chi2_results = {}
+    for question in yes_no_questions:
+        for attribute in attributes:
+            contingency_table = pd.crosstab(df[attribute], df[question])
+            chi2, p, dof, expected = chi2_contingency(contingency_table)
+            chi2_results[f"{question}_vs_{attribute}"] = {
+                'chi2': chi2,
+                'p_value': p,
+                'dof': dof
+            }
+    
+    return response_dist, trend_analysis, chi2_results
+
+def analyze_free_text(df, text_columns):
+    """自由記述の分析"""
+    results = {}
+    
+    for column in text_columns:
+        # テキストの前処理
+        processed_text = preprocess_text(df[column])
+        
+        # テーマの抽出
+        themes = extract_themes(processed_text)
+        
+        # 共起ネットワークの構築
+        co_occurrence = build_co_occurrence_network(processed_text)
+        
+        # ワードクラウドの生成
+        wordcloud = WordCloud(
+            width=800,
+            height=400,
+            background_color='white',
+            font_path='/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc'
+        ).generate(' '.join(processed_text))
+        
+        results[column] = {
+            'themes': themes,
+            'co_occurrence': co_occurrence,
+            'wordcloud': wordcloud
+        }
+    
+    return results
+
+def visualize_analysis(df, attributes, yes_no_questions, text_columns):
+    """分析結果の可視化"""
+    # 1. 属性データの分析
+    stats, cross_tabs, correlation = analyze_attributes(df, attributes)
+    
+    # 2. 2択質問の分析
+    response_dist, trend_analysis, chi2_results = analyze_yes_no_questions(
+        df, yes_no_questions, attributes
+    )
+    
+    # 3. 自由記述の分析
+    text_analysis = analyze_free_text(df, text_columns)
+    
+    return {
+        'stats': stats,
+        'cross_tabs': cross_tabs,
+        'correlation': correlation,
+        'response_dist': response_dist,
+        'trend_analysis': trend_analysis,
+        'chi2_results': chi2_results,
+        'text_analysis': text_analysis
+    }
+
 # タイトル
 st.title("採用動画アンケート結果分析")
 
 # ファイルアップロード
 uploaded_file = st.file_uploader("CSVファイルをアップロード", type=['csv'])
 
-def analyze_with_openai(text, prompt):
-    """OpenAI APIを使用してテキストを分析する"""
-    # OpenAI APIの呼び出しをコメントアウト
-    return None
-    """
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "あなたは採用動画の分析の専門家です。与えられたデータから、客観的で具体的な分析を行ってください。"},
-                {"role": "user", "content": f"{prompt}\n\n分析対象:\n{text}"}
-            ],
-            temperature=0.3,
-            max_tokens=2000
-        )
-        return response.choices[0].message['content']
-    except Exception as e:
-        st.error(f"OpenAI APIの呼び出し中にエラーが発生しました: {str(e)}")
-        return None
-    """
-
-def extract_questions(df):
-    """CSVファイルから質問項目を抽出する"""
-    # 属性情報の列名（▪︎を含む列）
-    attribute_columns = [col for col in df.columns if '▪︎' in col]
-    
-    # はい/いいえ質問の列名を抽出（文頭が⚫︎で始まる列）
-    yes_no_columns = [col for col in df.columns if col.startswith('⚫︎')]
-    
-    # その他の列を抽出
-    other_columns = [col for col in df.columns if col not in attribute_columns and col not in yes_no_columns]
-    
-    # 自由記述回答の列名を抽出（その他の列から選択）
-    free_answer_columns = [col for col in other_columns if df[col].dtype == 'object']
-    
-    return {
-        'attributes': attribute_columns,
-        'yes_no': yes_no_columns,
-        'free_answers': free_answer_columns
-    }
-
-def process_multiple_answers(df, column):
-    """複数回答を処理する"""
-    # 回答を文字列として取得
-    answers = df[column].astype(str)
-    
-    # カンマで分割して個別の回答に分解
-    all_answers = []
-    for answer in answers:
-        # カンマで分割し、空白を削除
-        split_answers = [a.strip() for a in answer.split('、')]
-        all_answers.extend(split_answers)
-    
-    # 回答の集計
-    answer_counts = pd.Series(all_answers).value_counts()
-    
-    return answer_counts
-
-def analyze_cross_tabulation(df, row_field, col_field):
-    """クロス集計を分析する"""
-    # クロス集計表の作成
-    cross_tab = pd.crosstab(df[row_field], df[col_field])
-    
-    # パーセンテージの計算
-    cross_tab_percent = cross_tab.div(cross_tab.sum(axis=1), axis=0) * 100
-    
-    return cross_tab, cross_tab_percent
-
 if uploaded_file is not None:
     # CSVファイルの読み込み
     df = pd.read_csv(uploaded_file)
     
-    # 質問項目の抽出
-    questions = extract_questions(df)
+    # 質問の分類
+    attributes = [col for col in df.columns if '▪︎' in col]
+    yes_no_questions = [col for col in df.columns if '⚫︎' in col]
+    text_columns = [col for col in df.columns if '・' in col]
+    
+    # 分析の実行
+    analysis_results = visualize_analysis(df, attributes, yes_no_questions, text_columns)
     
     # タブの作成
-    tab_attributes, tab_yes_no, tab_free_answers, tab_analysis = st.tabs([
-        "1. 回答者属性", "2. 2択質問", "3. 自由記述", "4. 総合分析"
+    tab_attributes, tab_yes_no, tab_text, tab_summary = st.tabs([
+        "1. 属性分析",
+        "2. 2択質問分析",
+        "3. 自由記述分析",
+        "4. 総合分析"
     ])
     
-    # 1. 回答者属性タブ
+    # 1. 属性分析タブ
     with tab_attributes:
-        st.markdown("### 1. 回答者属性")
-        st.markdown("回答者の基本的な属性（学年、性別、学部系統）の分布を分析します。")
+        st.markdown("### 1. 属性分析")
         
-        # 属性タブの下のサブタブ
-        subtab_overview, subtab_details = st.tabs([
-            "1-1. 属性別分布", 
-            "1-2. クロス分析"
-        ])
+        # 基本統計量の表示
+        st.markdown("#### 基本統計量")
+        st.write(analysis_results['stats'])
         
-        with subtab_overview:
-            st.markdown("#### 1-1. 属性別分布")
-            st.markdown("各属性（学年、性別、学部系統）の回答者分布を円グラフで表示します。")
-            
-            # 3列のコンテナを作成
-            cols = st.columns(3)
-            
-            # 各属性を3列で表示
-            for i, attr in enumerate(questions['attributes']):
-                with cols[i % 3]:
-                    # 複数回答の処理
-                    counts = process_multiple_answers(df, attr)
-                    fig = px.pie(
-                        values=counts.values,
-                        names=counts.index,
-                        title=f'{attr}分布'
-                    )
-                    st.plotly_chart(fig, use_container_width=True, key=f"pie_chart_{attr}")
+        # 相関分析の表示
+        st.markdown("#### 相関分析")
+        fig = px.imshow(
+            analysis_results['correlation'],
+            text_auto=".2f",
+            aspect="auto"
+        )
+        st.plotly_chart(fig)
         
-        with subtab_details:
-            st.markdown("#### 1-2. クロス分析")
-            st.markdown("属性間の関係性を詳細に分析します。")
-            
-            # 3列のコンテナを作成
-            cols = st.columns(3)
-            
-            # 各属性を3列で表示
-            for i, attr in enumerate(questions['attributes']):
-                with cols[i % 3]:
-                    st.markdown(f"**{attr}**")
-                    # 複数回答の処理
-                    counts = process_multiple_answers(df, attr)
-                    st.write(counts)
-                    st.write("---")
+        # クロス集計の表示
+        st.markdown("#### クロス集計")
+        for key, cross_tab in analysis_results['cross_tabs'].items():
+            st.markdown(f"##### {key}")
+            st.write(cross_tab)
     
-    # 2. 2択質問タブ
+    # 2. 2択質問分析タブ
     with tab_yes_no:
-        st.markdown("### 2. 2択質問の分析")
-        st.markdown("はい/いいえで回答された質問の分析結果を表示します。")
+        st.markdown("### 2. 2択質問分析")
         
-        # 2択質問タブの下のサブタブ
-        subtab_distribution, subtab_trend, subtab_cross = st.tabs([
-            "2-1. 回答分布", 
-            "2-2. 傾向分析", 
-            "2-3. クロス分析"
-        ])
-        
-        with subtab_distribution:
-            st.markdown("#### 2-1. 回答分布")
-            st.markdown("各質問に対する回答の分布を表示します。")
-            
-            # 3列レイアウトで表示
-            cols = st.columns(3)
-            for i, field in enumerate(questions['yes_no']):
-                col = cols[i % 3]
-                with col:
-                    # 回答の集計
-                    counts = df[field].value_counts()
-                    total = counts.sum()
-                    
-                    # 円グラフの作成
-                    fig = px.pie(
-                        values=counts.values,
-                        names=counts.index,
-                        title=field,
-                        hole=0.3
-                    )
-                    st.plotly_chart(fig, use_container_width=True, key=f"pie_chart_{field}")
-                    
-                    # 集計結果の表示
-                    st.markdown("**回答の内訳:**")
-                    for value, count in counts.items():
-                        percentage = (count / total) * 100
-                        st.write(f"- {value}: {count}件 ({percentage:.1f}%)")
-        
-        with subtab_trend:
-            st.markdown("#### 2-2. 傾向分析")
-            st.markdown("属性別の回答傾向を分析します。")
-            
-            # 属性ごとの分析
-            for attribute in questions['attributes']:
-                st.markdown(f"##### {attribute}別の回答傾向")
-                
-                # 属性ごとの回答分布を表示
-                for field in questions['yes_no']:
-                    # クロス集計
-                    cross_tab, cross_tab_percent = analyze_cross_tabulation(df, attribute, field)
-                    
-                    # ヒートマップの作成
-                    fig = px.imshow(
-                        cross_tab_percent,
-                        labels=dict(x=field, y=attribute, color="回答率(%)"),
-                        x=cross_tab_percent.columns,
-                        y=cross_tab_percent.index,
-                        text_auto=".1f",
-                        aspect="auto"
-                    )
-                    st.plotly_chart(fig, use_container_width=True, key=f"heatmap_{attribute}_{field}")
-        
-        with subtab_cross:
-            st.markdown("#### 2-3. クロス分析")
-            st.markdown("質問間の相関関係を分析します。")
-            
-            # 分析する質問の選択
-            selected_questions = st.multiselect(
-                "分析する質問を選択してください",
-                questions['yes_no'],
-                default=questions['yes_no'][:2]
+        # 回答分布の表示
+        st.markdown("#### 回答分布")
+        for question, dist in analysis_results['response_dist'].items():
+            fig = px.pie(
+                values=dist.values,
+                names=dist.index,
+                title=question
             )
-            
-            if len(selected_questions) >= 2:
-                # 選択された質問の組み合わせで分析
-                for i in range(len(selected_questions)):
-                    for j in range(i+1, len(selected_questions)):
-                        q1, q2 = selected_questions[i], selected_questions[j]
-                        
-                        st.markdown(f"##### {q1} × {q2}")
-                        
-                        # クロス集計
-                        cross_tab, cross_tab_percent = analyze_cross_tabulation(df, q1, q2)
-                        
-                        # ヒートマップの作成
-                        fig = px.imshow(
-                            cross_tab_percent,
-                            labels=dict(x=q2, y=q1, color="回答率(%)"),
-                            x=cross_tab_percent.columns,
-                            y=cross_tab_percent.index,
-                            text_auto=".1f",
-                            aspect="auto"
-                        )
-                        st.plotly_chart(fig, use_container_width=True, key=f"cross_heatmap_{q1}_{q2}")
-                        
-                        # 集計表の表示
-                        st.markdown("**集計表:**")
-                        st.write(cross_tab)
-                        
-                        st.write("---")
-            else:
-                st.info("2つ以上の質問を選択してください。")
+            st.plotly_chart(fig)
+        
+        # 傾向分析の表示
+        st.markdown("#### 傾向分析")
+        for key, trend in analysis_results['trend_analysis'].items():
+            st.markdown(f"##### {key}")
+            fig = px.imshow(
+                trend,
+                text_auto=".2f",
+                aspect="auto"
+            )
+            st.plotly_chart(fig)
+        
+        # カイ二乗検定結果の表示
+        st.markdown("#### 統計的有意差の検定")
+        for key, result in analysis_results['chi2_results'].items():
+            st.markdown(f"##### {key}")
+            st.write(f"カイ二乗値: {result['chi2']:.2f}")
+            st.write(f"p値: {result['p_value']:.4f}")
+            st.write(f"自由度: {result['dof']}")
     
-    # 3. 自由記述タブ
-    with tab_free_answers:
-        st.markdown("### 3. 自由記述回答の分析")
-        st.markdown("自由記述形式で回答された意見や感想を分析します。")
+    # 3. 自由記述分析タブ
+    with tab_text:
+        st.markdown("### 3. 自由記述分析")
         
-        # 自由記述回答の分析結果を保存
-        free_text_analysis = {}
-        
-        # 複数回答の質問を特定
-        multiple_choice_questions = [
-            "▪︎ 企業を選ぶ際に重視するポイント分析",
-            "▪︎ イキイキ働いていると感じる状態分析",
-            "▪︎ 働きがいを感じる時分析",
-            "▪︎ 就活情報源分析"
-        ]
-        
-        # 質問ごとのサブタブを作成
-        question_tabs = st.tabs([f"Q{i+1}: {q}" for i, q in enumerate(questions['free_answers'])])
-        
-        for i, (field, tab) in enumerate(zip(questions['free_answers'], question_tabs)):
-            with tab:
-                # 回答の取得と前処理
-                answers = df[field].dropna().tolist()
-                total_responses = len(answers)
-                
-                if total_responses > 0:
-                    # 複数回答の質問かどうかを判定
-                    is_multiple_choice = any(q in field for q in multiple_choice_questions)
-                    
-                    if is_multiple_choice:
-                        # 複数回答の処理
-                        counts = process_multiple_answers(df, field)
-                        
-                        # 円グラフで表示
-                        fig = px.pie(
-                            values=counts.values,
-                            names=counts.index,
-                            title=f'{field}の分布'
-                        )
-                        st.plotly_chart(fig, use_container_width=True, key=f"pie_chart_{field}")
-                        
-                        # 集計結果を表で表示
-                        st.markdown("**回答の集計:**")
-                        st.write(counts)
-                    else:
-                        # 自由記述タブの下のサブタブ
-                        subtab_grouped, subtab_raw = st.tabs([
-                            f"3-1. 回答一覧 ({field})", 
-                            f"3-2. 個別回答 ({field})"
-                        ])
-                        
-                        with subtab_grouped:
-                            st.markdown(f"##### {field}")
-                            st.markdown(f"**回答数: {total_responses}件**")
-                            
-                            # 回答を表示
-                            for j, answer in enumerate(answers, 1):
-                                st.write(f"{j}. {answer}")
-                        
-                        with subtab_raw:
-                            st.markdown(f"##### {field}")
-                            st.markdown(f"**回答数: {total_responses}件**")
-                            # 全ての回答をそのまま表示
-                            for j, answer in enumerate(answers, 1):
-                                st.write(f"{j}. {answer}")
-                else:
-                    st.info("このフィールドには回答がありません。")
-                
-                # 分析結果を保存
-                free_text_analysis[field] = {
-                    'total': total_responses,
-                    'all_answers': answers
-                }
-                
-                st.write("---")
+        for column, analysis in analysis_results['text_analysis'].items():
+            st.markdown(f"#### {column}")
+            
+            # テーマの表示
+            st.markdown("##### 主要テーマ")
+            for theme in analysis['themes']:
+                st.write(f"- {theme}")
+            
+            # ワードクラウドの表示
+            st.markdown("##### ワードクラウド")
+            plt.figure(figsize=(10, 5))
+            plt.imshow(analysis['wordcloud'], interpolation='bilinear')
+            plt.axis('off')
+            st.pyplot(plt)
     
     # 4. 総合分析タブ
-    with tab_analysis:
-        st.markdown("### 4. 総合分析・改善提案")
-        st.markdown("全ての回答データを統合的に分析し、改善案を提示します。")
+    with tab_summary:
+        st.markdown("### 4. 総合分析")
         
-        # 総合分析タブの下のサブタブ
-        subtab_summary, subtab_strengths, subtab_challenges, subtab_actions = st.tabs([
-            "4-1. 総合評価", 
-            "4-2. 現状の強み", 
-            "4-3. 主要な課題", 
-            "4-4. 改善提案"
-        ])
+        # 主成分分析
+        st.markdown("#### 主成分分析")
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_columns) > 0:
+            pca = PCA(n_components=2)
+            pca_result = pca.fit_transform(df[numeric_columns])
+            fig = px.scatter(
+                x=pca_result[:, 0],
+                y=pca_result[:, 1],
+                title="主成分分析結果"
+            )
+            st.plotly_chart(fig)
         
-        with subtab_summary:
-            st.markdown("#### 4-1. 総合評価")
-            st.markdown("動画全体の評価を主要な指標に基づいて分析します。")
-            
-            # 動画の視聴率（サムネイルの目立ち度）
-            thumbnail_question = next((q for q in questions['yes_no'] if 'サムネイル' in q), None)
-            if thumbnail_question:
-                thumbnail_yes = (df[thumbnail_question] == 'はい').sum()
-                thumbnail_total = len(df)
-                thumbnail_percentage = (thumbnail_yes / thumbnail_total) * 100
-            else:
-                thumbnail_percentage = 0
-            
-            # 冒頭の引き込み力
-            intro_question = next((q for q in questions['yes_no'] if '冒頭' in q), None)
-            if intro_question:
-                intro_yes = (df[intro_question] == 'はい').sum()
-                intro_percentage = (intro_yes / thumbnail_total) * 100
-            else:
-                intro_percentage = 0
-            
-            # 会社の雰囲気伝達
-            atmosphere_question = next((q for q in questions['yes_no'] if '雰囲気' in q), None)
-            if atmosphere_question:
-                atmosphere_yes = (df[atmosphere_question] == 'はい').sum()
-                atmosphere_percentage = (atmosphere_yes / thumbnail_total) * 100
-            else:
-                atmosphere_percentage = 0
-            
-            # 応募意向
-            apply_question = next((q for q in questions['yes_no'] if '応募' in q), None)
-            if apply_question:
-                apply_yes = (df[apply_question] == 'はい').sum()
-                apply_percentage = (apply_yes / thumbnail_total) * 100
-            else:
-                apply_percentage = 0
-            
-            # 総合評価の表示
-            st.markdown("**主要指標:**")
-            st.write(f"- 動画の視聴率: {thumbnail_percentage:.1f}%")
-            st.write(f"- 冒頭の引き込み力: {intro_percentage:.1f}%")
-            st.write(f"- 会社の雰囲気伝達: {atmosphere_percentage:.1f}%")
-            st.write(f"- 応募意向: {apply_percentage:.1f}%")
-        
-        with subtab_strengths:
-            st.markdown("#### 4-2. 現状の強み")
-            st.markdown("採用動画の特に効果的な要素と成功している点を分析します。")
-            
-            # 印象の分析から強みを抽出
-            impression_field = next((f for f in questions['free_answers'] if '印象' in f), None)
-            if impression_field and impression_field in free_text_analysis:
-                impression_analysis = free_text_analysis[impression_field]
-                st.markdown("**主な印象:**")
-                for answer in impression_analysis['all_answers'][:5]:
-                    st.write(f"- {answer}")
-        
-        with subtab_challenges:
-            st.markdown("#### 4-3. 主要な課題")
-            st.markdown("改善が必要な点や、視聴者が求める情報とのギャップを分析します。")
-            
-            # 欲しい情報の分析から課題を抽出
-            desired_info_field = next((f for f in questions['free_answers'] if '情報' in f), None)
-            if desired_info_field and desired_info_field in free_text_analysis:
-                desired_info = free_text_analysis[desired_info_field]
-                st.markdown("**不足している情報:**")
-                for answer in desired_info['all_answers'][:5]:
-                    st.write(f"- {answer}")
-        
-        with subtab_actions:
-            st.markdown("#### 4-4. 改善提案")
-            st.markdown("短期・中期・長期の具体的な改善案とアクションプランを提示します。")
-            
-            st.markdown("**短期的な改善案（1-3ヶ月）**")
-            st.write("- 動画の冒頭部分の改善")
-            st.write("- サムネイルの最適化")
-            
-            st.markdown("**中期的な改善案（3-6ヶ月）**")
-            st.write("- 会社の雰囲気をより効果的に伝える")
-            st.write("- 応募意向を高める要素の強化")
-            
-            st.markdown("**長期的な改善案（6ヶ月-1年）**")
-            st.write("- 採用戦略全体の見直し")
-            st.write("- 動画制作プロセスの改善")    
+        # クラスター分析
+        st.markdown("#### クラスター分析")
+        if len(numeric_columns) > 0:
+            kmeans = KMeans(n_clusters=3)
+            clusters = kmeans.fit_predict(df[numeric_columns])
+            fig = px.scatter(
+                x=pca_result[:, 0],
+                y=pca_result[:, 1],
+                color=clusters,
+                title="クラスター分析結果"
+            )
+            st.plotly_chart(fig)    
