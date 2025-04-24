@@ -86,6 +86,16 @@ def process_multiple_answers(df, column):
     
     return answer_counts
 
+def analyze_cross_tabulation(df, row_field, col_field):
+    """クロス集計を分析する"""
+    # クロス集計表の作成
+    cross_tab = pd.crosstab(df[row_field], df[col_field])
+    
+    # パーセンテージの計算
+    cross_tab_percent = cross_tab.div(cross_tab.sum(axis=1), axis=0) * 100
+    
+    return cross_tab, cross_tab_percent
+
 if uploaded_file is not None:
     # CSVファイルの読み込み
     df = pd.read_csv(uploaded_file)
@@ -147,57 +157,107 @@ if uploaded_file is not None:
     # 2. 2択質問タブ
     with tab_yes_no:
         st.markdown("### 2. 2択質問の分析")
-        st.markdown("「はい/いいえ」で回答する質問の結果を分析します。")
+        st.markdown("はい/いいえで回答された質問の分析結果を表示します。")
         
         # 2択質問タブの下のサブタブ
-        subtab_charts, subtab_trends = st.tabs([
+        subtab_distribution, subtab_trend, subtab_cross = st.tabs([
             "2-1. 回答分布", 
-            "2-2. 属性別傾向"
+            "2-2. 傾向分析", 
+            "2-3. クロス分析"
         ])
         
-        with subtab_charts:
+        with subtab_distribution:
             st.markdown("#### 2-1. 回答分布")
-            st.markdown("各質問に対する「はい/いいえ」の回答分布を円グラフで表示します。")
+            st.markdown("各質問に対する回答の分布を表示します。")
             
-            # 3列のコンテナを作成
+            # 3列レイアウトで表示
             cols = st.columns(3)
-            
-            # 各質問を3列で表示
-            for i, question in enumerate(questions['yes_no']):
-                with cols[i % 3]:
-                    yes_count = (df[question] == 'はい').sum()
-                    no_count = (df[question] == 'いいえ').sum()
-                    total = yes_count + no_count
-                    yes_percentage = (yes_count / total) * 100
+            for i, field in enumerate(questions['yes_no']):
+                col = cols[i % 3]
+                with col:
+                    # 回答の集計
+                    counts = df[field].value_counts()
+                    total = counts.sum()
                     
-                    fig = go.Figure(data=[go.Pie(
-                        labels=['はい', 'いいえ'],
-                        values=[yes_count, no_count],
-                        marker_colors=['#4CAF50', '#F44336']
-                    )])
-                    
-                    fig.update_layout(
-                        title=f"{question}<br>はい: {yes_percentage:.1f}%",
-                        showlegend=True
+                    # 円グラフの作成
+                    fig = px.pie(
+                        values=counts.values,
+                        names=counts.index,
+                        title=field,
+                        hole=0.3
                     )
+                    st.plotly_chart(fig, use_container_width=True, key=f"pie_chart_{field}")
                     
-                    st.plotly_chart(fig, use_container_width=True, key=f"pie_chart_{question}")
+                    # 集計結果の表示
+                    st.markdown("**回答の内訳:**")
+                    for value, count in counts.items():
+                        percentage = (count / total) * 100
+                        st.write(f"- {value}: {count}件 ({percentage:.1f}%)")
         
-        with subtab_trends:
-            st.markdown("#### 2-2. 属性別傾向")
-            st.markdown("回答者の属性（学年、性別、学部系統）ごとの回答傾向を分析します。")
+        with subtab_trend:
+            st.markdown("#### 2-2. 傾向分析")
+            st.markdown("属性別の回答傾向を分析します。")
             
-            # 質問ごとのサブタブを作成
-            question_tabs = st.tabs([f"Q{i+1}: {q}" for i, q in enumerate(questions['yes_no'])])
+            # 属性ごとの分析
+            for attribute in questions['attributes']:
+                st.markdown(f"##### {attribute}別の回答傾向")
+                
+                # 属性ごとの回答分布を表示
+                for field in questions['yes_no']:
+                    # クロス集計
+                    cross_tab, cross_tab_percent = analyze_cross_tabulation(df, attribute, field)
+                    
+                    # ヒートマップの作成
+                    fig = px.imshow(
+                        cross_tab_percent,
+                        labels=dict(x=field, y=attribute, color="回答率(%)"),
+                        x=cross_tab_percent.columns,
+                        y=cross_tab_percent.index,
+                        text_auto=".1f",
+                        aspect="auto"
+                    )
+                    st.plotly_chart(fig, use_container_width=True, key=f"heatmap_{attribute}_{field}")
+        
+        with subtab_cross:
+            st.markdown("#### 2-3. クロス分析")
+            st.markdown("質問間の相関関係を分析します。")
             
-            for i, (question, tab) in enumerate(zip(questions['yes_no'], question_tabs)):
-                with tab:
-                    st.markdown(f"##### {question}")
-                    for attr in questions['attributes']:
-                        st.markdown(f"**{attr}別の回答分布:**")
-                        cross_tab = pd.crosstab(df[attr], df[question], normalize='index') * 100
-                        st.write(cross_tab.round(1))
+            # 分析する質問の選択
+            selected_questions = st.multiselect(
+                "分析する質問を選択してください",
+                questions['yes_no'],
+                default=questions['yes_no'][:2]
+            )
+            
+            if len(selected_questions) >= 2:
+                # 選択された質問の組み合わせで分析
+                for i in range(len(selected_questions)):
+                    for j in range(i+1, len(selected_questions)):
+                        q1, q2 = selected_questions[i], selected_questions[j]
+                        
+                        st.markdown(f"##### {q1} × {q2}")
+                        
+                        # クロス集計
+                        cross_tab, cross_tab_percent = analyze_cross_tabulation(df, q1, q2)
+                        
+                        # ヒートマップの作成
+                        fig = px.imshow(
+                            cross_tab_percent,
+                            labels=dict(x=q2, y=q1, color="回答率(%)"),
+                            x=cross_tab_percent.columns,
+                            y=cross_tab_percent.index,
+                            text_auto=".1f",
+                            aspect="auto"
+                        )
+                        st.plotly_chart(fig, use_container_width=True, key=f"cross_heatmap_{q1}_{q2}")
+                        
+                        # 集計表の表示
+                        st.markdown("**集計表:**")
+                        st.write(cross_tab)
+                        
                         st.write("---")
+            else:
+                st.info("2つ以上の質問を選択してください。")
     
     # 3. 自由記述タブ
     with tab_free_answers:
