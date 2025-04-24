@@ -130,11 +130,12 @@ if uploaded_file is not None:
             st.markdown("#### 2-1. 回答分布")
             st.markdown("各質問に対する「はい/いいえ」の回答分布を円グラフで表示します。")
             
-            # 質問ごとのサブタブを作成
-            question_tabs = st.tabs([f"Q{i+1}: {q}" for i, q in enumerate(questions['yes_no'])])
+            # 3列のコンテナを作成
+            cols = st.columns(3)
             
-            for i, (question, tab) in enumerate(zip(questions['yes_no'], question_tabs)):
-                with tab:
+            # 各質問を3列で表示
+            for i, question in enumerate(questions['yes_no']):
+                with cols[i % 3]:
                     yes_count = (df[question] == 'はい').sum()
                     no_count = (df[question] == 'いいえ').sum()
                     total = yes_count + no_count
