@@ -92,37 +92,28 @@ if uploaded_file is not None:
             st.markdown("#### 1-1. 属性別分布")
             st.markdown("各属性（学年、性別、学部系統）の回答者分布を円グラフで表示します。")
             
-            # 属性情報の列数に応じて動的に列を生成
-            num_attributes = len(questions['attributes'])
-            cols = st.columns(num_attributes)
+            # 3列のコンテナを作成
+            cols = st.columns(3)
             
+            # 各属性を3列で表示
             for i, attr in enumerate(questions['attributes']):
-                with cols[i]:
+                with cols[i % 3]:
                     counts = df[attr].value_counts()
                     fig = px.pie(
                         values=counts.values,
                         names=counts.index,
                         title=f'{attr}分布'
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key=f"pie_chart_{attr}")
         
         with subtab_details:
             st.markdown("#### 1-2. クロス分析")
             st.markdown("属性間の関係性を詳細に分析します。")
-            
-            # 属性ごとに3列で表示
-            for i in range(0, len(questions['attributes']), 3):
-                # 3列のコンテナを作成
-                cols = st.columns(3)
-                
-                # 3つの属性を表示
-                for j in range(3):
-                    if i + j < len(questions['attributes']):
-                        attr = questions['attributes'][i + j]
-                        with cols[j]:
-                            st.markdown(f"**{attr}の詳細分析**")
-                            st.write(df[attr].value_counts())
-                            st.write("---")
+            # クロス集計や詳細な分析を表示
+            for attr in questions['attributes']:
+                st.subheader(f"{attr}の詳細分析")
+                st.write(df[attr].value_counts())
+                st.write("---")
     
     # 2. 2択質問タブ
     with tab_yes_no:
