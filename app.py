@@ -151,7 +151,8 @@ if uploaded_file is not None:
                         showlegend=True
                     )
                     
-                    st.plotly_chart(fig, use_container_width=True)
+                    # グラフのIDを一意にするために質問の内容を含める
+                    st.plotly_chart(fig, use_container_width=True, key=f"pie_chart_{question}")
         
         with subtab_trends:
             st.markdown("#### 2-2. 属性別傾向")
