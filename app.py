@@ -147,11 +147,10 @@ if uploaded_file is not None:
                     )])
                     
                     fig.update_layout(
-                        title=f"はい: {yes_percentage:.1f}%",
+                        title=f"{question}<br>はい: {yes_percentage:.1f}%",
                         showlegend=True
                     )
                     
-                    # グラフのIDを一意にするために質問の内容を含める
                     st.plotly_chart(fig, use_container_width=True, key=f"pie_chart_{question}")
         
         with subtab_trends:
