@@ -78,7 +78,7 @@ def process_multiple_answers(df, column):
     all_answers = []
     for answer in answers:
         # カンマで分割し、空白を削除
-        split_answers = [a.strip() for a in answer.split(',')]
+        split_answers = [a.strip() for a in answer.split('、')]
         all_answers.extend(split_answers)
     
     # 回答の集計
