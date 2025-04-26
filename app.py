@@ -130,10 +130,10 @@ def process_ranked_answers(df, question):
 
 # 複数回答の質問リスト
 MULTIPLE_CHOICE_QUESTIONS = [
-    "・企業を選ぶ際に重視するポイント",
-    "・生き生き働いていると感じる状態",
-    "・働きがいを感じるとき",
-    "・就活情報源"
+    "▪︎ 企業を選ぶ際に重視するポイント",
+    "▪︎ 生き生き働いていると感じる状態",
+    "▪︎ 働きがいを感じるとき",
+    "▪︎ 就活情報源"
 ]
 
 def analyze_yes_no_questions(df, yes_no_questions, attributes):
