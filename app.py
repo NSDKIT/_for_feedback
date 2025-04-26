@@ -101,7 +101,7 @@ def analyze_attributes(df, attributes):
     return stats, cross_tabs, ranked_distributions
 
 def process_ranked_attributes(df, question):
-    """属性データ用：順位付き複数回答の処理"""
+    """属性データ用：順位付き複数回答の処理（全体分布も返す）"""
     answers = []
     for response in df[question]:
         if pd.isna(response):
@@ -114,10 +114,14 @@ def process_ranked_attributes(df, question):
     result_df = pd.DataFrame(answers, columns=['回答', '順位'])
     rank_distributions = {}
     max_rank = result_df['順位'].max()
+    # 各順位ごとの分布
     for rank in range(1, max_rank + 1):
         rank_answers = result_df[result_df['順位'] == rank]['回答']
         if not rank_answers.empty:
             rank_distributions[f"{rank}位"] = rank_answers.value_counts()
+    # 全体分布
+    all_counts = result_df['回答'].value_counts()
+    rank_distributions['全体'] = all_counts
     return rank_distributions
 
 # 複数回答の質問リスト
@@ -248,46 +252,45 @@ if uploaded_file is not None:
     with tab_attributes:
         st.markdown("### 1. 属性分析")
         st.markdown("#### 属性ごとの分布（円グラフ）")
-        cols = st.columns(3)
-        for i, attr in enumerate(attributes):
-            with cols[i % 3]:
-                st.markdown(f"##### {attr}")
-                if attr in MULTIPLE_CHOICE_QUESTIONS:
-                    # analyze_attributesで計算した順位ごとの分布を利用
-                    rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
-                    num_ranks = len(rank_distributions)
-                    if num_ranks > 0:
-                        rank_cols = st.columns(num_ranks)
-                        for j, (rank, rank_dist) in enumerate(rank_distributions.items()):
-                            with rank_cols[j]:
-                                st.markdown(f"###### {rank}")
-                                fig = px.pie(
-                                    values=rank_dist.values,
-                                    names=rank_dist.index,
-                                    width=400,
-                                    height=400
-                                )
-                                fig.update_layout(
-                                    uniformtext_minsize=12,
-                                    uniformtext_mode='hide'
-                                )
-                                st.plotly_chart(fig, use_container_width=True)
-                else:
-                    stat = analysis_results['stats'][attr]
-                    fig = px.pie(
-                        values=list(stat['distribution'].values()),
-                        names=list(stat['distribution'].keys()),
-                        width=400,
-                        height=400
-                    )
-                    fig.update_layout(
-                        uniformtext_minsize=12,
-                        uniformtext_mode='hide'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                    st.write(f"回答数: {stat['count']}")
-                    st.write(f"ユニーク数: {stat['unique']}")
-                    st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
+        for attr in attributes:
+            st.markdown(f"##### {attr}")
+            if attr in MULTIPLE_CHOICE_QUESTIONS:
+                # analyze_attributesで計算した順位ごとの分布を利用
+                rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
+                # 「全体」は表示せず、順位ごとに3列レイアウトで横並び表示
+                rank_keys = [k for k in rank_distributions.keys() if k != '全体']
+                cols = st.columns(3)
+                for i, rank in enumerate(sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999)):
+                    with cols[i % 3]:
+                        st.markdown(f"###### {rank}")
+                        rank_dist = rank_distributions[rank]
+                        fig = px.pie(
+                            values=rank_dist.values,
+                            names=rank_dist.index,
+                            width=400,
+                            height=400
+                        )
+                        fig.update_layout(
+                            uniformtext_minsize=12,
+                            uniformtext_mode='hide'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+            else:
+                stat = analysis_results['stats'][attr]
+                fig = px.pie(
+                    values=list(stat['distribution'].values()),
+                    names=list(stat['distribution'].keys()),
+                    width=400,
+                    height=400
+                )
+                fig.update_layout(
+                    uniformtext_minsize=12,
+                    uniformtext_mode='hide'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                st.write(f"回答数: {stat['count']}")
+                st.write(f"ユニーク数: {stat['unique']}")
+                st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
         st.markdown("#### クロス集計")
         for key, cross_tab in analysis_results['cross_tabs'].items():
             st.markdown(f"##### {key}")
