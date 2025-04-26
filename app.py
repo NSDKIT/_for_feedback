@@ -219,12 +219,18 @@ if uploaded_file is not None:
         for i, (attr, stat) in enumerate(analysis_results['stats'].items()):
             with cols[i % 3]:
                 st.markdown(f"##### {attr}")
-                # 円グラフの作成
+                # 円グラフの作成（サイズを統一）
                 fig = px.pie(
                     values=list(stat['distribution'].values()),
-                    names=list(stat['distribution'].keys())
+                    names=list(stat['distribution'].keys()),
+                    width=400,
+                    height=400
                 )
-                st.plotly_chart(fig, use_container_width=True)        
+                fig.update_layout(
+                    uniformtext_minsize=12,
+                    uniformtext_mode='hide'
+                )
+                st.plotly_chart(fig, use_container_width=True)
         
         # クロス集計の表示
         st.markdown("#### クロス集計")
@@ -242,9 +248,15 @@ if uploaded_file is not None:
             fig = px.pie(
                 values=dist.values,
                 names=dist.index,
-                title=question
+                title=question,
+                width=400,
+                height=400
             )
-            st.plotly_chart(fig)
+            fig.update_layout(
+                uniformtext_minsize=12,
+                uniformtext_mode='hide'
+            )
+            st.plotly_chart(fig, use_container_width=True)
         
         # 傾向分析の表示
         st.markdown("#### 傾向分析")
