@@ -80,17 +80,23 @@ def build_co_occurrence_network(text_series, window_size=2):
 def analyze_attributes(df, attributes):
     """属性データの分析"""
     # 1. 基本統計量の計算
-    stats = df[attributes].describe()
+    stats = {}
+    for attr in attributes:
+        value_counts = df[attr].value_counts()
+        stats[attr] = {
+            'count': df[attr].count(),
+            'unique': df[attr].nunique(),
+            'top': value_counts.index[0] if not value_counts.empty else None,
+            'freq': value_counts.iloc[0] if not value_counts.empty else 0,
+            'distribution': value_counts.to_dict()
+        }
     
     # 2. クロス集計
     cross_tabs = {}
     for attr1, attr2 in itertools.combinations(attributes, 2):
         cross_tabs[f"{attr1}_vs_{attr2}"] = pd.crosstab(df[attr1], df[attr2])
     
-    # 3. 相関分析
-    correlation = df[attributes].corr()
-    
-    return stats, cross_tabs, correlation
+    return stats, cross_tabs
 
 def analyze_yes_no_questions(df, yes_no_questions, attributes):
     """2択質問の分析"""
@@ -156,7 +162,7 @@ def analyze_free_text(df, text_columns):
 def visualize_analysis(df, attributes, yes_no_questions, text_columns):
     """分析結果の可視化"""
     # 1. 属性データの分析
-    stats, cross_tabs, correlation = analyze_attributes(df, attributes)
+    stats, cross_tabs = analyze_attributes(df, attributes)
     
     # 2. 2択質問の分析
     response_dist, trend_analysis, chi2_results = analyze_yes_no_questions(
@@ -169,7 +175,6 @@ def visualize_analysis(df, attributes, yes_no_questions, text_columns):
     return {
         'stats': stats,
         'cross_tabs': cross_tabs,
-        'correlation': correlation,
         'response_dist': response_dist,
         'trend_analysis': trend_analysis,
         'chi2_results': chi2_results,
@@ -209,15 +214,6 @@ if uploaded_file is not None:
         # 基本統計量の表示
         st.markdown("#### 基本統計量")
         st.write(analysis_results['stats'])
-        
-        # 相関分析の表示
-        st.markdown("#### 相関分析")
-        fig = px.imshow(
-            analysis_results['correlation'],
-            text_auto=".2f",
-            aspect="auto"
-        )
-        st.plotly_chart(fig)
         
         # クロス集計の表示
         st.markdown("#### クロス集計")
