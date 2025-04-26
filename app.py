@@ -213,20 +213,24 @@ if uploaded_file is not None:
         
         # 基本統計量の表示（円グラフ）
         st.markdown("#### 基本統計量")
-        for attr, stat in analysis_results['stats'].items():
-            st.markdown(f"##### {attr}")
-            # 円グラフの作成
-            fig = px.pie(
-                values=list(stat['distribution'].values()),
-                names=list(stat['distribution'].keys()),
-                title=f"{attr}の分布"
-            )
-            st.plotly_chart(fig)
-            
-            # 数値情報の表示
-            st.write(f"回答数: {stat['count']}")
-            st.write(f"ユニーク数: {stat['unique']}")
-            st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
+        
+        # 3列レイアウトで円グラフを表示
+        cols = st.columns(3)
+        for i, (attr, stat) in enumerate(analysis_results['stats'].items()):
+            with cols[i % 3]:
+                st.markdown(f"##### {attr}")
+                # 円グラフの作成
+                fig = px.pie(
+                    values=list(stat['distribution'].values()),
+                    names=list(stat['distribution'].keys()),
+                    title=f"{attr}の分布"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # 数値情報の表示
+                st.write(f"回答数: {stat['count']}")
+                st.write(f"ユニーク数: {stat['unique']}")
+                st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
         
         # クロス集計の表示
         st.markdown("#### クロス集計")
