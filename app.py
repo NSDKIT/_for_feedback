@@ -98,42 +98,32 @@ def analyze_attributes(df, attributes):
     
     return stats, cross_tabs
 
-def process_ranked_answers(df, question):
-    """順位付き複数回答の処理"""
-    # 回答を「、」で分割し、順位を付与
+def process_ranked_attributes(df, question):
+    """属性データ用：順位付き複数回答の処理"""
     answers = []
     for response in df[question]:
         if pd.isna(response):
             continue
-        # 回答を分割
         items = [item.strip() for item in str(response).split('、')]
-        # 順位を付与（1位から）
         for rank, item in enumerate(items, 1):
             answers.append((item, rank))
-    
-    # 回答と順位のDataFrameを作成
     if not answers:
         return {}
-    
     result_df = pd.DataFrame(answers, columns=['回答', '順位'])
-    
-    # 各順位ごとの回答分布を計算
     rank_distributions = {}
     max_rank = result_df['順位'].max()
-    
     for rank in range(1, max_rank + 1):
         rank_answers = result_df[result_df['順位'] == rank]['回答']
         if not rank_answers.empty:
             rank_distributions[f"{rank}位"] = rank_answers.value_counts()
-    
     return rank_distributions
 
 # 複数回答の質問リスト
 MULTIPLE_CHOICE_QUESTIONS = [
-    " ▪︎ 企業を選ぶ際に重視するポイント",
-    " ▪︎ 生き生き働いていると感じる状態",
-    " ▪︎ 働きがいを感じるとき",
-    " ▪︎ 就活情報源"
+    "▪︎ 企業を選ぶ際に重視するポイント",
+    "▪︎ 生き生き働いていると感じる状態",
+    "▪︎ 働きがいを感じるとき",
+    "▪︎ 就活情報源"
 ]
 
 def analyze_yes_no_questions(df, yes_no_questions, attributes):
@@ -143,7 +133,7 @@ def analyze_yes_no_questions(df, yes_no_questions, attributes):
     for question in yes_no_questions:
         if question in MULTIPLE_CHOICE_QUESTIONS:
             # 複数回答の質問は特別処理
-            ranked_answers = process_ranked_answers(df, question)
+            ranked_answers = process_ranked_attributes(df, question)
             if not ranked_answers:
                 response_dist[question] = {}
             else:
@@ -257,29 +247,44 @@ if uploaded_file is not None:
     # 1. 属性分析タブ
     with tab_attributes:
         st.markdown("### 1. 属性分析")
-        
-        # 基本統計量の表示（円グラフ）
-        st.markdown("#### 基本統計量")
-        
-        # 3列レイアウトで円グラフを表示
+        st.markdown("#### 属性ごとの分布（円グラフ）")
         cols = st.columns(3)
-        for i, (attr, stat) in enumerate(analysis_results['stats'].items()):
+        for i, attr in enumerate(attributes):
             with cols[i % 3]:
                 st.markdown(f"##### {attr}")
-                # 円グラフの作成（サイズを統一）
-                fig = px.pie(
-                    values=list(stat['distribution'].values()),
-                    names=list(stat['distribution'].keys()),
-                    width=400,
-                    height=400
-                )
-                fig.update_layout(
-                    uniformtext_minsize=12,
-                    uniformtext_mode='hide'
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        
-        # クロス集計の表示
+                if attr in MULTIPLE_CHOICE_QUESTIONS:
+                    # 複数回答属性は順位ごとに円グラフ
+                    rank_distributions = process_ranked_attributes(df, attr)
+                    for rank, rank_dist in rank_distributions.items():
+                        st.markdown(f"###### {rank}")
+                        fig = px.pie(
+                            values=rank_dist.values,
+                            names=rank_dist.index,
+                            width=400,
+                            height=400
+                        )
+                        fig.update_layout(
+                            uniformtext_minsize=12,
+                            uniformtext_mode='hide'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    # 通常の属性は従来通り
+                    stat = analysis_results['stats'][attr]
+                    fig = px.pie(
+                        values=list(stat['distribution'].values()),
+                        names=list(stat['distribution'].keys()),
+                        width=400,
+                        height=400
+                    )
+                    fig.update_layout(
+                        uniformtext_minsize=12,
+                        uniformtext_mode='hide'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    st.write(f"回答数: {stat['count']}")
+                    st.write(f"ユニーク数: {stat['unique']}")
+                    st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
         st.markdown("#### クロス集計")
         for key, cross_tab in analysis_results['cross_tabs'].items():
             st.markdown(f"##### {key}")
