@@ -222,8 +222,7 @@ if uploaded_file is not None:
                 # 円グラフの作成
                 fig = px.pie(
                     values=list(stat['distribution'].values()),
-                    names=list(stat['distribution'].keys()),
-                    title=f"{attr}の分布"
+                    names=list(stat['distribution'].keys())
                 )
                 st.plotly_chart(fig, use_container_width=True)        
         
