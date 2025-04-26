@@ -14,6 +14,7 @@ from sklearn.preprocessing import StandardScaler
 import re
 from collections import Counter
 import itertools
+import openai
 
 # OpenAI APIキーの設定
 try:
