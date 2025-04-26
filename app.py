@@ -98,12 +98,51 @@ def analyze_attributes(df, attributes):
     
     return stats, cross_tabs
 
+def process_ranked_answers(df, question):
+    """順位付き複数回答の処理"""
+    # 回答を「、」で分割し、順位を付与
+    answers = []
+    for response in df[question]:
+        if pd.isna(response):
+            continue
+        # 回答を分割
+        items = [item.strip() for item in str(response).split('、')]
+        # 順位を付与（1位から）
+        for rank, item in enumerate(items, 1):
+            answers.append((item, rank))
+    
+    # 回答と順位のDataFrameを作成
+    if not answers:
+        return pd.DataFrame()
+    
+    result_df = pd.DataFrame(answers, columns=['回答', '順位'])
+    
+    # 各回答の平均順位を計算
+    avg_rank = result_df.groupby('回答')['順位'].mean().sort_values()
+    
+    return avg_rank
+
+# 複数回答の質問リスト
+MULTIPLE_CHOICE_QUESTIONS = [
+    "・企業を選ぶ際に重視するポイント",
+    "・生き生き働いていると感じる状態",
+    "・働きがいを感じるとき",
+    "・就活情報源"
+]
+
 def analyze_yes_no_questions(df, yes_no_questions, attributes):
     """2択質問の分析"""
     # 1. 回答分布の集計
     response_dist = {}
     for question in yes_no_questions:
-        response_dist[question] = df[question].value_counts(normalize=True)
+        if question in MULTIPLE_CHOICE_QUESTIONS:
+            # 複数回答の質問は特別処理
+            ranked_answers = process_ranked_answers(df, question)
+            if not ranked_answers.empty:
+                response_dist[question] = ranked_answers
+        else:
+            # 通常の2択質問
+            response_dist[question] = df[question].value_counts(normalize=True)
     
     # 2. 属性別の傾向分析
     trend_analysis = {}
@@ -245,18 +284,38 @@ if uploaded_file is not None:
         # 回答分布の表示
         st.markdown("#### 回答分布")
         for question, dist in analysis_results['response_dist'].items():
-            fig = px.pie(
-                values=dist.values,
-                names=dist.index,
-                title=question,
-                width=400,
-                height=400
-            )
-            fig.update_layout(
-                uniformtext_minsize=12,
-                uniformtext_mode='hide'
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            if question in MULTIPLE_CHOICE_QUESTIONS:
+                # 複数回答の質問は順位付き円グラフ
+                fig = px.pie(
+                    values=dist.values,
+                    names=dist.index,
+                    title=f"{question}（平均順位）",
+                    width=400,
+                    height=400
+                )
+                fig.update_layout(
+                    uniformtext_minsize=12,
+                    uniformtext_mode='hide'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # 順位の詳細を表示
+                st.write("平均順位（小さいほど上位）:")
+                st.write(dist)
+            else:
+                # 通常の2択質問
+                fig = px.pie(
+                    values=dist.values,
+                    names=dist.index,
+                    title=question,
+                    width=400,
+                    height=400
+                )
+                fig.update_layout(
+                    uniformtext_minsize=12,
+                    uniformtext_mode='hide'
+                )
+                st.plotly_chart(fig, use_container_width=True)
         
         # 傾向分析の表示
         st.markdown("#### 傾向分析")
