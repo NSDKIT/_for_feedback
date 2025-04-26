@@ -211,9 +211,22 @@ if uploaded_file is not None:
     with tab_attributes:
         st.markdown("### 1. 属性分析")
         
-        # 基本統計量の表示
+        # 基本統計量の表示（円グラフ）
         st.markdown("#### 基本統計量")
-        st.write(analysis_results['stats'])
+        for attr, stat in analysis_results['stats'].items():
+            st.markdown(f"##### {attr}")
+            # 円グラフの作成
+            fig = px.pie(
+                values=list(stat['distribution'].values()),
+                names=list(stat['distribution'].keys()),
+                title=f"{attr}の分布"
+            )
+            st.plotly_chart(fig)
+            
+            # 数値情報の表示
+            st.write(f"回答数: {stat['count']}")
+            st.write(f"ユニーク数: {stat['unique']}")
+            st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
         
         # クロス集計の表示
         st.markdown("#### クロス集計")
