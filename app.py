@@ -248,18 +248,37 @@ if uploaded_file is not None:
     with tab_attributes:
         st.markdown("### 1. 属性分析")
         st.markdown("#### 属性ごとの分布（円グラフ）")
-        cols = st.columns(3)
-        for i, attr in enumerate(attributes):
-            with cols[i % 3]:
-                st.markdown(f"##### {attr}")
-                if attr in MULTIPLE_CHOICE_QUESTIONS:
-                    # analyze_attributesで計算した順位ごとの分布を利用
-                    rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
-                    for rank, rank_dist in rank_distributions.items():
-                        st.markdown(f"###### {rank}")
+        for attr in attributes:
+            st.markdown(f"##### {attr}")
+            if attr in MULTIPLE_CHOICE_QUESTIONS:
+                # 複数回答属性は順位ごとに横並びで円グラフ
+                rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
+                num_ranks = len(rank_distributions)
+                if num_ranks > 0:
+                    rank_cols = st.columns(num_ranks)
+                    for j, (rank, rank_dist) in enumerate(rank_distributions.items()):
+                        with rank_cols[j]:
+                            st.markdown(f"###### {rank}")
+                            fig = px.pie(
+                                values=rank_dist.values,
+                                names=rank_dist.index,
+                                width=400,
+                                height=400
+                            )
+                            fig.update_layout(
+                                uniformtext_minsize=12,
+                                uniformtext_mode='hide'
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+            else:
+                # 通常属性は3列レイアウト
+                cols = st.columns(3)
+                stat = analysis_results['stats'][attr]
+                for i, (name, value) in enumerate(stat['distribution'].items()):
+                    with cols[i % 3]:
                         fig = px.pie(
-                            values=rank_dist.values,
-                            names=rank_dist.index,
+                            values=[value, stat['count'] - value],
+                            names=[name, 'その他'],
                             width=400,
                             height=400
                         )
@@ -268,22 +287,9 @@ if uploaded_file is not None:
                             uniformtext_mode='hide'
                         )
                         st.plotly_chart(fig, use_container_width=True)
-                else:
-                    stat = analysis_results['stats'][attr]
-                    fig = px.pie(
-                        values=list(stat['distribution'].values()),
-                        names=list(stat['distribution'].keys()),
-                        width=400,
-                        height=400
-                    )
-                    fig.update_layout(
-                        uniformtext_minsize=12,
-                        uniformtext_mode='hide'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                    st.write(f"回答数: {stat['count']}")
-                    st.write(f"ユニーク数: {stat['unique']}")
-                    st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
+                st.write(f"回答数: {stat['count']}")
+                st.write(f"ユニーク数: {stat['unique']}")
+                st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
         st.markdown("#### クロス集計")
         for key, cross_tab in analysis_results['cross_tabs'].items():
             st.markdown(f"##### {key}")
