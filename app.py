@@ -251,53 +251,49 @@ if uploaded_file is not None:
     # 1. 属性分析タブ
     with tab_attributes:
         st.markdown("### 1. 属性分析")
-        # サブセクション1: 属性ごとの分布
-        st.subheader("属性ごとの分布（円グラフ）")
-        all_graphs = []
-        for attr in attributes:
-            if attr in MULTIPLE_CHOICE_QUESTIONS:
-                rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
-                rank_keys = [k for k in rank_distributions.keys() if k != '全体']
-                for rank in sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999):
-                    rank_dist = rank_distributions[rank]
-                    all_graphs.append({
-                        'title': f"{attr} {rank}",
-                        'fig': px.pie(
-                            values=rank_dist.values,
-                            names=rank_dist.index,
+        subtab_dist, subtab_cross = st.tabs(["属性ごとの分布（円グラフ）", "クロス集計"])
+        with subtab_dist:
+            for attr in attributes:
+                st.markdown(f"##### {attr}")
+                if attr in MULTIPLE_CHOICE_QUESTIONS:
+                    rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
+                    rank_keys = [k for k in rank_distributions.keys() if k != '全体']
+                    cols = st.columns(3)
+                    for i, rank in enumerate(sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999)):
+                        with cols[i % 3]:
+                            rank_dist = rank_distributions[rank]
+                            st.markdown(f"###### {rank}")
+                            fig = px.pie(
+                                values=rank_dist.values,
+                                names=rank_dist.index,
+                                width=400,
+                                height=400
+                            )
+                            fig.update_layout(
+                                uniformtext_minsize=12,
+                                uniformtext_mode='hide'
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                else:
+                    cols = st.columns(3)
+                    with cols[0]:
+                        stat = analysis_results['stats'][attr]
+                        fig = px.pie(
+                            values=list(stat['distribution'].values()),
+                            names=list(stat['distribution'].keys()),
                             width=400,
                             height=400
                         )
-                    })
-            else:
-                stat = analysis_results['stats'][attr]
-                all_graphs.append({
-                    'title': attr,
-                    'fig': px.pie(
-                        values=list(stat['distribution'].values()),
-                        names=list(stat['distribution'].keys()),
-                        width=400,
-                        height=400
-                    )
-                })
-        for i in range(0, len(all_graphs), 3):
-            cols = st.columns(3)
-            for j, graph in enumerate(all_graphs[i:i+3]):
-                with cols[j]:
-                    st.markdown(f"###### {graph['title']}")
-                    fig = graph['fig']
-                    fig.update_layout(
-                        uniformtext_minsize=12,
-                        uniformtext_mode='hide'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                    if 'info' in graph:
-                        st.caption(graph['info'])
-        # サブセクション2: クロス集計
-        st.subheader("クロス集計")
-        for key, cross_tab in analysis_results['cross_tabs'].items():
-            st.markdown(f"##### {key}")
-            st.write(cross_tab)
+                        fig.update_layout(
+                            uniformtext_minsize=12,
+                            uniformtext_mode='hide'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        st.caption(f"回答数: {stat['count']}｜ユニーク数: {stat['unique']}｜最頻値: {stat['top']} ({stat['freq']}件)")
+        with subtab_cross:
+            for key, cross_tab in analysis_results['cross_tabs'].items():
+                st.markdown(f"##### {key}")
+                st.write(cross_tab)
     
     # 2. 2択質問分析タブ
     with tab_yes_no:
