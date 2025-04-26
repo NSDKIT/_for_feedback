@@ -78,25 +78,27 @@ def build_co_occurrence_network(text_series, window_size=2):
     return co_occurrence
 
 def analyze_attributes(df, attributes):
-    """属性データの分析"""
-    # 1. 基本統計量の計算
+    """属性データの分析（通常属性＋複数回答属性の順位分布）"""
     stats = {}
+    ranked_distributions = {}
     for attr in attributes:
-        value_counts = df[attr].value_counts()
-        stats[attr] = {
-            'count': df[attr].count(),
-            'unique': df[attr].nunique(),
-            'top': value_counts.index[0] if not value_counts.empty else None,
-            'freq': value_counts.iloc[0] if not value_counts.empty else 0,
-            'distribution': value_counts.to_dict()
-        }
-    
-    # 2. クロス集計
+        if attr in MULTIPLE_CHOICE_QUESTIONS:
+            # 複数回答属性は順位ごとの分布を計算
+            ranked_distributions[attr] = process_ranked_attributes(df, attr)
+        else:
+            value_counts = df[attr].value_counts()
+            stats[attr] = {
+                'count': df[attr].count(),
+                'unique': df[attr].nunique(),
+                'top': value_counts.index[0] if not value_counts.empty else None,
+                'freq': value_counts.iloc[0] if not value_counts.empty else 0,
+                'distribution': value_counts.to_dict()
+            }
+    # クロス集計
     cross_tabs = {}
     for attr1, attr2 in itertools.combinations(attributes, 2):
         cross_tabs[f"{attr1}_vs_{attr2}"] = pd.crosstab(df[attr1], df[attr2])
-    
-    return stats, cross_tabs
+    return stats, cross_tabs, ranked_distributions
 
 def process_ranked_attributes(df, question):
     """属性データ用：順位付き複数回答の処理"""
@@ -198,20 +200,18 @@ def analyze_free_text(df, text_columns):
 
 def visualize_analysis(df, attributes, yes_no_questions, text_columns):
     """分析結果の可視化"""
-    # 1. 属性データの分析
-    stats, cross_tabs = analyze_attributes(df, attributes)
-    
-    # 2. 2択質問の分析
+    # 属性データの分析
+    stats, cross_tabs, attribute_ranked = analyze_attributes(df, attributes)
+    # 2択質問の分析
     response_dist, trend_analysis, chi2_results = analyze_yes_no_questions(
         df, yes_no_questions, attributes
     )
-    
-    # 3. 自由記述の分析
+    # 自由記述の分析
     text_analysis = analyze_free_text(df, text_columns)
-    
     return {
         'stats': stats,
         'cross_tabs': cross_tabs,
+        'attribute_ranked': attribute_ranked,
         'response_dist': response_dist,
         'trend_analysis': trend_analysis,
         'chi2_results': chi2_results,
@@ -253,8 +253,8 @@ if uploaded_file is not None:
             with cols[i % 3]:
                 st.markdown(f"##### {attr}")
                 if attr in MULTIPLE_CHOICE_QUESTIONS:
-                    # 複数回答属性は順位ごとに円グラフ
-                    rank_distributions = process_ranked_attributes(df, attr)
+                    # analyze_attributesで計算した順位ごとの分布を利用
+                    rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
                     for rank, rank_dist in rank_distributions.items():
                         st.markdown(f"###### {rank}")
                         fig = px.pie(
@@ -269,7 +269,6 @@ if uploaded_file is not None:
                         )
                         st.plotly_chart(fig, use_container_width=True)
                 else:
-                    # 通常の属性は従来通り
                     stat = analysis_results['stats'][attr]
                     fig = px.pie(
                         values=list(stat['distribution'].values()),
