@@ -7,7 +7,6 @@ from scipy.stats import chi2_contingency
 import networkx as nx
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
-import japanize_matplotlib
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
