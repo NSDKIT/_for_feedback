@@ -31,7 +31,8 @@ st.set_page_config(
 )
 
 # 日本語フォントの設定
-plt.rcParams['font.family'] = 'Hiragino Sans'
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic', 'Noto Sans CJK JP']
 
 def preprocess_text(text_series):
     """テキストデータの前処理"""
@@ -141,7 +142,7 @@ def analyze_free_text(df, text_columns):
             width=800,
             height=400,
             background_color='white',
-            font_path='/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc'
+            font_path=None  # システムのデフォルトフォントを使用
         ).generate(' '.join(processed_text))
         
         results[column] = {
