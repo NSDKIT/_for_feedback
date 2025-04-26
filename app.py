@@ -225,12 +225,7 @@ if uploaded_file is not None:
                     names=list(stat['distribution'].keys()),
                     title=f"{attr}の分布"
                 )
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # 数値情報の表示
-                st.write(f"回答数: {stat['count']}")
-                st.write(f"ユニーク数: {stat['unique']}")
-                st.write(f"最頻値: {stat['top']} ({stat['freq']}件)")
+                st.plotly_chart(fig, use_container_width=True)        
         
         # クロス集計の表示
         st.markdown("#### クロス集計")
