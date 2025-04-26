@@ -113,14 +113,20 @@ def process_ranked_answers(df, question):
     
     # 回答と順位のDataFrameを作成
     if not answers:
-        return pd.DataFrame()
+        return {}
     
     result_df = pd.DataFrame(answers, columns=['回答', '順位'])
     
-    # 各回答の平均順位を計算
-    avg_rank = result_df.groupby('回答')['順位'].mean().sort_values()
+    # 各順位ごとの回答分布を計算
+    rank_distributions = {}
+    max_rank = result_df['順位'].max()
     
-    return avg_rank
+    for rank in range(1, max_rank + 1):
+        rank_answers = result_df[result_df['順位'] == rank]['回答']
+        if not rank_answers.empty:
+            rank_distributions[f"{rank}位"] = rank_answers.value_counts()
+    
+    return rank_distributions
 
 # 複数回答の質問リスト
 MULTIPLE_CHOICE_QUESTIONS = [
@@ -138,7 +144,9 @@ def analyze_yes_no_questions(df, yes_no_questions, attributes):
         if question in MULTIPLE_CHOICE_QUESTIONS:
             # 複数回答の質問は特別処理
             ranked_answers = process_ranked_answers(df, question)
-            if not ranked_answers.empty:
+            if not ranked_answers:
+                response_dist[question] = {}
+            else:
                 response_dist[question] = ranked_answers
         else:
             # 通常の2択質問
@@ -285,23 +293,21 @@ if uploaded_file is not None:
         st.markdown("#### 回答分布")
         for question, dist in analysis_results['response_dist'].items():
             if question in MULTIPLE_CHOICE_QUESTIONS:
-                # 複数回答の質問は順位付き円グラフ
-                fig = px.pie(
-                    values=dist.values,
-                    names=dist.index,
-                    title=f"{question}（平均順位）",
-                    width=400,
-                    height=400
-                )
-                fig.update_layout(
-                    uniformtext_minsize=12,
-                    uniformtext_mode='hide'
-                )
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # 順位の詳細を表示
-                st.write("平均順位（小さいほど上位）:")
-                st.write(dist)
+                # 複数回答の質問は順位ごとの円グラフ
+                st.markdown(f"##### {question}")
+                for rank, rank_dist in dist.items():
+                    st.markdown(f"###### {rank}")
+                    fig = px.pie(
+                        values=rank_dist.values,
+                        names=rank_dist.index,
+                        width=400,
+                        height=400
+                    )
+                    fig.update_layout(
+                        uniformtext_minsize=12,
+                        uniformtext_mode='hide'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
             else:
                 # 通常の2択質問
                 fig = px.pie(
