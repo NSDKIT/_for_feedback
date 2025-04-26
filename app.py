@@ -251,12 +251,11 @@ if uploaded_file is not None:
     # 1. 属性分析タブ
     with tab_attributes:
         st.markdown("### 1. 属性分析")
-        st.markdown("#### 属性ごとの分布（円グラフ）")
-        # すべてのグラフを3列レイアウトで横並びに
+        # サブセクション1: 属性ごとの分布
+        st.subheader("属性ごとの分布（円グラフ）")
         all_graphs = []
         for attr in attributes:
             if attr in MULTIPLE_CHOICE_QUESTIONS:
-                # analyze_attributesで計算した順位ごとの分布を利用
                 rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
                 rank_keys = [k for k in rank_distributions.keys() if k != '全体']
                 for rank in sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999):
@@ -279,10 +278,8 @@ if uploaded_file is not None:
                         names=list(stat['distribution'].keys()),
                         width=400,
                         height=400
-                    ),
-                    'info': f"回答数: {stat['count']}｜ユニーク数: {stat['unique']}｜最頻値: {stat['top']} ({stat['freq']}件)"
+                    )
                 })
-        # 3列で横並びに表示
         for i in range(0, len(all_graphs), 3):
             cols = st.columns(3)
             for j, graph in enumerate(all_graphs[i:i+3]):
@@ -296,7 +293,8 @@ if uploaded_file is not None:
                     st.plotly_chart(fig, use_container_width=True)
                     if 'info' in graph:
                         st.caption(graph['info'])
-        st.markdown("#### クロス集計")
+        # サブセクション2: クロス集計
+        st.subheader("クロス集計")
         for key, cross_tab in analysis_results['cross_tabs'].items():
             st.markdown(f"##### {key}")
             st.write(cross_tab)
