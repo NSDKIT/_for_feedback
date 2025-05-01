@@ -14,7 +14,7 @@ import re
 from collections import Counter
 import itertools
 import os
-import anthropic
+from anthropic import Anthropic
 
 # ページ設定
 st.set_page_config(
@@ -27,7 +27,7 @@ st.set_page_config(
 try:
     api_key = st.secrets["ANTHROPIC_API_KEY"]    
     # クライアントを初期化
-    client = anthropic.Anthropic(api_key=api_key)        
+    client = Anthropic(api_key=api_key)        
 except Exception as e:
     st.error(f"Anthropic APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
