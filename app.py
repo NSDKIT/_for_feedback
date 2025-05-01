@@ -94,11 +94,29 @@ def extract_themes(text_series, n_themes=5):
         if text:
             # janomeで単語分割
             tokens = tokenizer.tokenize(text)
-            # 助詞を除外して単語を抽出
-            words.extend([
-                token.surface for token in tokens 
-                if token.part_of_speech.split(',')[0] not in ['助詞', '助動詞', '接続詞', '記号']
-            ])
+            # 品詞と活用形を考慮して単語を抽出
+            for token in tokens:
+                pos_info = token.part_of_speech.split(',')
+                pos = pos_info[0]  # 品詞
+                pos_detail = pos_info[1] if len(pos_info) > 1 else ''  # 品詞細分類
+                base_form = token.base_form  # 基本形
+
+                # 以下の条件で単語を抽出
+                if (
+                    # 名詞（数詞、非自立、代名詞以外）
+                    (pos == '名詞' and pos_detail not in ['数', '非自立', '代名詞']) or
+                    # 動詞（基本形を使用、助動詞化したものは除外）
+                    (pos == '動詞' and pos_detail not in ['非自立'] and base_form != token.surface) or
+                    # 形容詞（基本形を使用）
+                    (pos == '形容詞' and pos_detail not in ['非自立']) or
+                    # 形容動詞（基本形を使用）
+                    pos == '形容動詞'
+                ):
+                    # 動詞、形容詞、形容動詞は基本形を使用
+                    word = base_form if pos in ['動詞', '形容詞', '形容動詞'] else token.surface
+                    # 一文字の単語は除外
+                    if len(word) > 1:
+                        words.append(word)
     
     # 単語の出現頻度をカウント
     word_counts = Counter(words)
@@ -116,11 +134,31 @@ def build_co_occurrence_network(text_series, window_size=2):
         if text:
             # janomeで単語分割
             tokens = tokenizer.tokenize(text)
-            # 助詞を除外して単語を抽出
-            words.extend([
-                token.surface for token in tokens 
-                if token.part_of_speech.split(',')[0] not in ['助詞', '助動詞', '接続詞', '記号']
-            ])
+            # 品詞と活用形を考慮して単語を抽出
+            text_words = []
+            for token in tokens:
+                pos_info = token.part_of_speech.split(',')
+                pos = pos_info[0]  # 品詞
+                pos_detail = pos_info[1] if len(pos_info) > 1 else ''  # 品詞細分類
+                base_form = token.base_form  # 基本形
+
+                # 以下の条件で単語を抽出
+                if (
+                    # 名詞（数詞、非自立、代名詞以外）
+                    (pos == '名詞' and pos_detail not in ['数', '非自立', '代名詞']) or
+                    # 動詞（基本形を使用、助動詞化したものは除外）
+                    (pos == '動詞' and pos_detail not in ['非自立'] and base_form != token.surface) or
+                    # 形容詞（基本形を使用）
+                    (pos == '形容詞' and pos_detail not in ['非自立']) or
+                    # 形容動詞（基本形を使用）
+                    pos == '形容動詞'
+                ):
+                    # 動詞、形容詞、形容動詞は基本形を使用
+                    word = base_form if pos in ['動詞', '形容詞', '形容動詞'] else token.surface
+                    # 一文字の単語は除外
+                    if len(word) > 1:
+                        text_words.append(word)
+            words.extend(text_words)
     
     # 共起関係をカウント
     co_occurrence = {}
@@ -225,11 +263,32 @@ def analyze_free_text(df, text_columns):
             # テキストを結合してjanomeで処理
             combined_text = ' '.join(processed_text)
             tokens = tokenizer.tokenize(combined_text)
-            # 助詞を除外して単語を抽出
-            parsed_text = ' '.join([
-                token.surface for token in tokens 
-                if token.part_of_speech.split(',')[0] not in ['助詞', '助動詞', '接続詞', '記号']
-            ])
+            # 品詞と活用形を考慮して単語を抽出
+            word_list = []
+            for token in tokens:
+                pos_info = token.part_of_speech.split(',')
+                pos = pos_info[0]  # 品詞
+                pos_detail = pos_info[1] if len(pos_info) > 1 else ''  # 品詞細分類
+                base_form = token.base_form  # 基本形
+
+                # 以下の条件で単語を抽出
+                if (
+                    # 名詞（数詞、非自立、代名詞以外）
+                    (pos == '名詞' and pos_detail not in ['数', '非自立', '代名詞']) or
+                    # 動詞（基本形を使用、助動詞化したものは除外）
+                    (pos == '動詞' and pos_detail not in ['非自立'] and base_form != token.surface) or
+                    # 形容詞（基本形を使用）
+                    (pos == '形容詞' and pos_detail not in ['非自立']) or
+                    # 形容動詞（基本形を使用）
+                    pos == '形容動詞'
+                ):
+                    # 動詞、形容詞、形容動詞は基本形を使用
+                    word = base_form if pos in ['動詞', '形容詞', '形容動詞'] else token.surface
+                    # 一文字の単語は除外
+                    if len(word) > 1:
+                        word_list.append(word)
+            
+            parsed_text = ' '.join(word_list)
             
             # フォントパスが利用可能か確認
             if FONT_PATH and os.path.exists(FONT_PATH):
