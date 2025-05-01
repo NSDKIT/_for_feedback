@@ -96,7 +96,7 @@ def analyze_free_text_with_openai(text_series):
     try:
         # OpenAI APIを使用して分析を実行
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4-turbo-preview",
             messages=[
                 {"role": "system", "content": "あなたはアンケート分析の専門家です。"},
                 {"role": "user", "content": formatted_prompt}
@@ -131,87 +131,6 @@ def analyze_free_text(df, text_columns):
         }
     
     return results
-
-# def analyze_survey_with_anthropic(text_series):
-#     """Anthropic APIを使用した自由記述の分析（指定形式）"""
-#     results = []
-    
-#     # テキストを結合して分析用のプロンプトを作成
-#     combined_text = ' '.join(text_series.dropna())
-    
-#     # プロンプトテンプレート
-#     prompt_template = """
-#     以下の自由記述アンケート回答を分析し、指定された形式で結果をまとめてください。
-
-#     【分析対象】
-#     {text}
-
-#     【分析結果】
-#     1. 学生の声を踏まえた総合評価:
-#        [学生の回答から見えてくる全体的な評価と主要な傾向を200字以内で簡潔に要約]
-
-#     2. 次のステップ（推奨アクション）:
-#        a. 短期アクション (1-3ヶ月):
-#           - [具体的なアクション1]
-#           - [具体的なアクション2]
-#           - [具体的なアクション3]
-       
-#        b. 中期アクション (3-6ヶ月):
-#           - [具体的なアクション1]
-#           - [具体的なアクション2]
-#           - [具体的なアクション3]
-       
-#        c. 長期アクション (6ヶ月以上):
-#           - [具体的なアクション1]
-#           - [具体的なアクション2]
-#           - [具体的なアクション3]
-
-#     3. 現状の強み:
-#        - [強み1]: [簡潔な説明]
-#        - [強み2]: [簡潔な説明]
-#        - [強み3]: [簡潔な説明]
-#        - [強み4]: [簡潔な説明]
-#        - [強み5]: [簡潔な説明]
-
-#     4. 主要な課題:
-#        - [課題1]: [簡潔な説明と影響]
-#        - [課題2]: [簡潔な説明と影響]
-#        - [課題3]: [簡潔な説明と影響]
-#        - [課題4]: [簡潔な説明と影響]
-#        - [課題5]: [簡潔な説明と影響]
-
-#     5. 最終提言:
-#        [アンケート結果から導き出される最も重要な提言を150字以内でまとめる]
-#     """
-    
-#     # プロンプトにテキストを埋め込む
-#     formatted_prompt = prompt_template.format(text=combined_text)
-    
-#     try:
-#         # Anthropic APIを使用して分析を実行
-#         message = client.messages.create(
-#             model="claude-3-5-haiku-latest",
-#             max_tokens=2000,  # 十分な出力トークン数を確保
-#             messages=[
-#                 {
-#                     "role": "user",
-#                     "content": formatted_prompt
-#                 }
-#             ]
-#         )
-        
-#         # レスポンス処理
-#         if message and hasattr(message, 'content') and message.content:
-#             analysis_result = message.content[0].text
-#             results.append(analysis_result)
-#         else:
-#             results.append("分析結果を取得できませんでした。")
-        
-#     except Exception as e:
-#         st.error(f"Anthropic APIを使用した分析中にエラーが発生しました: {str(e)}")
-#         results.append(f"分析に失敗しました。エラー: {str(e)}")
-    
-#     return results
 
 def process_ranked_attributes(df, question):
     """属性データ用：順位付き複数回答の処理（全体分布も返す）"""
@@ -659,9 +578,9 @@ if uploaded_file is not None:
                     st.markdown(f"**質問文**: {column}")
                     st.markdown("---")
                     
-                    # Anthropicによる分析結果の表示
+                    # OpenAIによる分析結果の表示
                     st.markdown("#### AI分析結果")
-                    for result in analysis['anthropic_analysis']:
+                    for result in analysis['openai_analysis']:
                         st.markdown(result)
                         
     # 4. 総合分析タブ
