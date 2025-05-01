@@ -14,7 +14,7 @@ import re
 from collections import Counter
 import itertools
 import os
-from anthropic import Anthropic
+from openai import OpenAI
 
 # ページ設定
 st.set_page_config(
@@ -23,26 +23,20 @@ st.set_page_config(
     layout="wide"
 )
 
-# Anthropic APIキーの設定
+# OpenAI APIキーの設定
 try:
-    api_key = st.secrets["ANTHROPIC_API_KEY"]
-    
-    # Anthropicライブラリをインポート
-    import anthropic
-    
-    # 新しいAPI形式でクライアント初期化
-    client = anthropic.Anthropic(api_key=api_key)
-    
+    api_key = st.secrets["OPENAI_API_KEY"]
+    client = OpenAI(api_key=api_key)
 except Exception as e:
-    st.error(f"Anthropic APIキーの設定中にエラーが発生しました: {str(e)}")
+    st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
 
 # 日本語フォントの設定
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic']
 
-def analyze_free_text_with_anthropic(text_series):
-    """Anthropic APIを使用した自由記述の分析（構造化された出力形式）"""
+def analyze_free_text_with_openai(text_series):
+    """OpenAI APIを使用した自由記述の分析（構造化された出力形式）"""
     results = []
     
     # テキストを結合して分析用のプロンプトを作成
@@ -100,41 +94,40 @@ def analyze_free_text_with_anthropic(text_series):
     formatted_prompt = prompt_template.format(text=combined_text)
     
     try:
-        # Anthropic APIを使用して分析を実行
-        message = client.messages.create(
-            model="claude-3-5-haiku-latest",
-            max_tokens=2000,  # 十分な出力トークン数を確保
+        # OpenAI APIを使用して分析を実行
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[
-                {
-                    "role": "user",
-                    "content": formatted_prompt
-                }
-            ]
+                {"role": "system", "content": "あなたはアンケート分析の専門家です。"},
+                {"role": "user", "content": formatted_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
         )
         
         # レスポンス処理
-        if message and hasattr(message, 'content') and message.content:
-            analysis_result = message.content[0].text
+        if response and response.choices:
+            analysis_result = response.choices[0].message.content
             results.append(analysis_result)
         else:
             results.append("分析結果を取得できませんでした。")
         
     except Exception as e:
-        st.error(f"Anthropic APIを使用した分析中にエラーが発生しました: {str(e)}")
+        st.error(f"OpenAI APIを使用した分析中にエラーが発生しました: {str(e)}")
         results.append(f"分析に失敗しました。エラー: {str(e)}")
     
     return results
 
 def analyze_free_text(df, text_columns):
-    """自由記述の分析（Anthropic APIのみ）"""
+    """自由記述の分析（OpenAI APIのみ）"""
     results = {}
     
     for column in text_columns:
-        # Anthropic APIを使用した分析
-        anthropic_analysis = analyze_free_text_with_anthropic(df[column])
+        # OpenAI APIを使用した分析
+        openai_analysis = analyze_free_text_with_openai(df[column])
         
         results[column] = {
-            'anthropic_analysis': anthropic_analysis
+            'openai_analysis': openai_analysis
         }
     
     return results
@@ -430,23 +423,22 @@ def analyze_all_survey_responses(df, text_columns, attributes, yes_no_questions)
     )
     
     try:
-        # Anthropic APIを使用して分析を実行
-        message = client.messages.create(
-            model="claude-3-5-haiku-latest",
-            max_tokens=2000,
+        # OpenAI APIを使用して分析を実行
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[
-                {
-                    "role": "user",
-                    "content": formatted_prompt
-                }
-            ]
+                {"role": "system", "content": "あなたはアンケート分析と採用戦略の専門家です。"},
+                {"role": "user", "content": formatted_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
         )
         
         # レスポンス処理
-        if message and hasattr(message, 'content') and message.content:
+        if response and response.choices:
             return {
                 'quantitative_analysis': quantitative_analysis,
-                'strategic_analysis': message.content[0].text
+                'strategic_analysis': response.choices[0].message.content
             }
         else:
             return {
@@ -455,7 +447,7 @@ def analyze_all_survey_responses(df, text_columns, attributes, yes_no_questions)
             }
         
     except Exception as e:
-        st.error(f"Anthropic APIを使用した分析中にエラーが発生しました: {str(e)}")
+        st.error(f"OpenAI APIを使用した分析中にエラーが発生しました: {str(e)}")
         return {
             'quantitative_analysis': quantitative_analysis,
             'strategic_analysis': f"分析に失敗しました。エラー: {str(e)}"
