@@ -253,16 +253,20 @@ if uploaded_file is not None:
         st.markdown("### 1. 属性分析")
         subtab_dist, subtab_cross = st.tabs(["属性ごとの分布（円グラフ）", "クロス集計"])
         with subtab_dist:
+            # 3列のレイアウトを作成
+            cols = st.columns(3)
+            col_index = 0
+            
             for attr in attributes:
-                st.markdown(f"##### {attr}")
                 if attr in MULTIPLE_CHOICE_QUESTIONS:
+                    # 複数回答の質問は順位ごとに独立した図を表示
                     rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
                     rank_keys = [k for k in rank_distributions.keys() if k != '全体']
-                    cols = st.columns(3)
-                    for i, rank in enumerate(sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999)):
-                        with cols[i % 3]:
+                    
+                    for rank in sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999):
+                        with cols[col_index % 3]:
                             rank_dist = rank_distributions[rank]
-                            st.markdown(f"###### {rank}")
+                            st.markdown(f"###### {attr} - {rank}")
                             fig = px.pie(
                                 values=rank_dist.values,
                                 names=rank_dist.index,
@@ -274,10 +278,12 @@ if uploaded_file is not None:
                                 uniformtext_mode='hide'
                             )
                             st.plotly_chart(fig, use_container_width=True)
+                        col_index += 1
                 else:
-                    cols = st.columns(3)
-                    with cols[0]:
+                    # 通常の属性は1つの図を表示
+                    with cols[col_index % 3]:
                         stat = analysis_results['stats'][attr]
+                        st.markdown(f"###### {attr}")
                         fig = px.pie(
                             values=list(stat['distribution'].values()),
                             names=list(stat['distribution'].keys()),
@@ -289,7 +295,7 @@ if uploaded_file is not None:
                             uniformtext_mode='hide'
                         )
                         st.plotly_chart(fig, use_container_width=True)
-                        st.caption(f"回答数: {stat['count']}｜ユニーク数: {stat['unique']}｜最頻値: {stat['top']} ({stat['freq']}件)")
+                    col_index += 1
         with subtab_cross:
             for key, cross_tab in analysis_results['cross_tabs'].items():
                 st.markdown(f"##### {key}")
