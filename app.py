@@ -42,28 +42,78 @@ plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic']
 
 def analyze_free_text_with_anthropic(text_series):
-    """Anthropic APIを使用した自由記述の分析（新しいAPI形式）"""
+    """Anthropic APIを使用した自由記述の分析（構造化された出力形式）"""
     results = []
     
     # テキストを結合して分析用のプロンプトを作成
     combined_text = ' '.join(text_series.dropna())
     
+    # プロンプトテンプレート
+    prompt_template = """
+    以下の自由記述アンケート回答を分析してください。回答者の意見、感想、提案を体系的に整理し、以下の形式で結果をまとめてください。
+
+    【分析対象】
+    {text}
+
+    【分析結果】
+    1. 主要テーマ（5つまで、重要度順）:
+       - テーマ1: [テーマ名] - [簡潔な説明]
+       - テーマ2: [テーマ名] - [簡潔な説明]
+       ...
+
+    2. 頻出キーワード（10個まで、出現頻度順）:
+       - キーワード1: [出現回数]
+       - キーワード2: [出現回数]
+       ...
+
+    3. 感情分析:
+       - ポジティブな意見: [割合]%
+       - ネガティブな意見: [割合]%
+       - 中立的な意見: [割合]%
+       - 主なポジティブポイント: [簡潔に箇条書き]
+       - 主なネガティブポイント: [簡潔に箇条書き]
+
+    4. カテゴリー別の意見（重要な順に5つまで）:
+       - カテゴリー1: 
+         * 主な意見: [簡潔に要約]
+         * 具体的な提案: [あれば記載]
+       - カテゴリー2:
+         * 主な意見: [簡潔に要約]
+         * 具体的な提案: [あれば記載]
+       ...
+
+    5. 特筆すべき少数意見（3つまで）:
+       - [意見1の要約]
+       - [意見2の要約]
+       - [意見3の要約]
+
+    6. 総合分析（200字以内）:
+       [アンケート全体の傾向、主な発見、示唆される対応策などを簡潔に記載]
+
+    7. アクションアイテム（優先度順に3つまで）:
+       - [具体的な行動提案1]
+       - [具体的な行動提案2]
+       - [具体的な行動提案3]
+    """
+    
+    # プロンプトにテキストを埋め込む
+    formatted_prompt = prompt_template.format(text=combined_text)
+    
     try:
-        # 新しいAnthropic API形式でメッセージ作成
+        # Anthropic APIを使用して分析を実行
         message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=1000,
+            model="claude-3-5-haiku-latest",
+            max_tokens=2000,  # 十分な出力トークン数を確保
             messages=[
                 {
                     "role": "user",
-                    "content": f"あなたはテキスト分析の専門家です。以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。\n\n{combined_text}"
+                    "content": formatted_prompt
                 }
             ]
         )
         
         # レスポンス処理
         if message and hasattr(message, 'content') and message.content:
-            # content[0].textでテキスト内容を取得
             analysis_result = message.content[0].text
             results.append(analysis_result)
         else:
@@ -198,11 +248,12 @@ if uploaded_file is not None:
     analysis_results = visualize_analysis(df, attributes, yes_no_questions, text_columns)
     
     # タブの作成
-    tab_attributes, tab_yes_no, tab_text, tab_summary = st.tabs([
+    tab_attributes, tab_yes_no, tab_text, tab_summary, tab_cross = st.tabs([
         "1. 属性分析",
         "2. 2択質問分析",
         "3. 自由記述分析",
-        "4. 総合分析"
+        "4. 総合分析",
+        "5. クロス分析"
     ])
     
     # 1. 属性分析タブ
@@ -368,7 +419,7 @@ if uploaded_file is not None:
                     st.markdown("#### AI分析結果")
                     for result in analysis['anthropic_analysis']:
                         st.markdown(result)
-
+                        
     # 4. 総合分析タブ
     with tab_summary:
         st.markdown("### 4. 総合分析")
@@ -397,4 +448,50 @@ if uploaded_file is not None:
                 color=clusters,
                 title="クラスター分析結果"
             )
-            st.plotly_chart(fig)    
+            st.plotly_chart(fig)
+
+    # 5. クロス分析タブ
+    with tab_cross:
+        def display_cross_analysis(df):
+            st.markdown("### 5. クロス分析")
+
+            tabs = st.tabs([
+                "性別 × 興味のある業界",
+                "性別 × 興味のある職種",
+                "学年 × 興味のある業界",
+                "学年 × 興味のある職種",
+                "出身地 × 興味のある業界",
+                "出身地 × 興味のある職種",
+                "学年 × 憧れている業界"
+            ])
+
+            # 定義: 各クロス集計タブの情報
+            cross_info = [
+                ("▪︎ 性別", "▪︎ 興味のある業界"),
+                ("▪︎ 性別", "▪︎ 興味のある職種"),
+                ("▪︎ 学年", "▪︎ 興味のある業界"),
+                ("▪︎ 学年", "▪︎ 興味のある職種"),
+                ("▪︎ 出身地", "▪︎ 興味のある業界"),
+                ("▪︎ 出身地", "▪︎ 興味のある職種"),
+                ("▪︎ 学年", "▪︎ 憧れている業界")
+            ]
+
+            for tab, (row_attr, col_attr) in zip(tabs, cross_info):
+                with tab:
+                    st.markdown(f"#### {row_attr} × {col_attr} のクロス集計")
+                    try:
+                        ct = pd.crosstab(df[row_attr], df[col_attr])
+                        ct = ct.loc[:, ct.sum().sort_values(ascending=False).index]  # カラムを頻度順に
+
+                        fig = px.bar(
+                            ct.T,
+                            barmode="stack",
+                            title=f"{row_attr} × {col_attr}"
+                        )
+                        fig.update_layout(xaxis_title=col_attr, yaxis_title="人数")
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"エラーが発生しました: {str(e)}")
+
+        # クロス分析の実行
+        display_cross_analysis(df)    
