@@ -51,7 +51,7 @@ def analyze_free_text_with_anthropic(text_series):
     try:
         # 新しいAnthropic API形式でメッセージ作成
         message = client.messages.create(
-            model="claude-3-sonnet-20240229",
+            model="claude-3-5-haiku-latest",
             max_tokens=1000,
             messages=[
                 {
