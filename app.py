@@ -27,12 +27,18 @@ try:
         st.error("OpenAI APIキーが空です。有効なAPIキーを設定してください。")
         st.stop()
     
+    # APIキーの形式を確認
+    if not api_key.startswith("sk-"):
+        st.error("OpenAI APIキーの形式が正しくありません。'sk-'で始まる必要があります。")
+        st.stop()
+    
     # クライアントを初期化
     client = openai.OpenAI(api_key=api_key)
     
     # テスト用のAPIコール
     try:
-        client.models.list()
+        models = client.models.list()
+        st.success("OpenAI APIキーが正常に設定されました。")
     except Exception as e:
         st.error(f"OpenAI APIキーが無効です: {str(e)}")
         st.stop()
