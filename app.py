@@ -45,19 +45,16 @@ def analyze_free_text_with_anthropic(text_series):
     
     try:
         # Anthropic APIを使用してテキスト分析を実行
-        response = client.beta.messages.create(
+        response = client.messages.create(
             model="claude-3-sonnet-20240229",
-            max_tokens=1000,
-            messages=[{
-                "role": "user",
-                "content": f"""あなたはテキスト分析の専門家です。以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。
+            system="あなたはテキスト分析の専門家です。",
+            content=f"""以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。
 
 {combined_text}"""
-            }]
         )
         
         if response and response.content:
-            analysis_result = response.content[0].text
+            analysis_result = response.content
             results.append(analysis_result)
         else:
             results.append("分析結果を取得できませんでした。")
