@@ -27,16 +27,12 @@ st.set_page_config(
 try:
     api_key = st.secrets["ANTHROPIC_API_KEY"]
     
-    # 最新のAnthropicライブラリをインポート
+    # Anthropicライブラリをインポート
     import anthropic
-    
-    # バージョン確認（参考用）
-    import pkg_resources
-    anthropic_version = pkg_resources.get_distribution("anthropic").version
-    st.info(f"Anthropicライブラリのバージョン: {anthropic_version}")
     
     # 新しいAPI形式でクライアント初期化
     client = anthropic.Anthropic(api_key=api_key)
+    
 except Exception as e:
     st.error(f"Anthropic APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
