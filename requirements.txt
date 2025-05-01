@@ -7,6 +7,4 @@ networkx>=3.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 scikit-learn>=1.2.0
-httpx==0.27.2
-openai==1.55.3
-anthropic-sdk>=0.18.0
+anthropic==0.7.8
