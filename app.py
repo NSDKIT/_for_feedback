@@ -351,13 +351,33 @@ if uploaded_file is not None:
     with tab_text:
         st.markdown("### 3. 自由記述分析")
         
-        for column, analysis in analysis_results['text_analysis'].items():
-            st.markdown(f"#### {column}")
+        # 質問ごとのサブタブを作成
+        if analysis_results['text_analysis']:
+            # サブタブのリストを作成
+            text_tabs = st.tabs([f"質問{i+1}: {column.split('#')[1] if '#' in column else column}" 
+                               for i, column in enumerate(analysis_results['text_analysis'].keys())])
             
-            # Anthropicによる分析結果の表示
-            st.markdown("##### Anthropicによる分析")
-            for result in analysis['anthropic_analysis']:
-                st.write(result)
+            # 各サブタブに分析結果を表示
+            for tab, (column, analysis) in zip(text_tabs, analysis_results['text_analysis'].items()):
+                with tab:
+                    # 元の質問文を表示
+                    st.markdown(f"**質問文**: {column}")
+                    st.markdown("---")
+                    
+                    # Anthropicによる分析結果の表示
+                    st.markdown("#### AI分析結果")
+                    for result in analysis['anthropic_analysis']:
+                        st.markdown(result)
+                        
+                    # 回答数などの基本統計を表示
+                    if column in df.columns:
+                        st.markdown("#### 基本統計")
+                        total_responses = df[column].notna().sum()
+                        avg_length = df[column].str.len().mean() if df[column].dtype == 'object' else 0
+                        st.markdown(f"""
+                        - 回答数: {total_responses}件
+                        - 平均文字数: {avg_length:.1f}文字
+                        """)
     
     # 4. 総合分析タブ
     with tab_summary:
