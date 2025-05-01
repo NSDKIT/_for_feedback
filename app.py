@@ -333,14 +333,30 @@ if uploaded_file is not None:
         # 回答分布の表示
         st.markdown("#### 回答分布")
         for question, dist in analysis_results['response_dist'].items():
-            if question in MULTIPLE_CHOICE_QUESTIONS:
-                # 複数回答の質問は順位ごとの円グラフ
+            if "（上位3つまで）" in question or "（複数選択可）" in question:
+                # 複数回答の質問は質問タイプに応じて処理
                 st.markdown(f"##### {question}")
-                for rank, rank_dist in dist.items():
-                    st.markdown(f"###### {rank}")
+                if "（上位3つまで）" in question:
+                    # 上位3つまでの質問は順位ごとの円グラフ
+                    for rank, rank_dist in dist.items():
+                        st.markdown(f"###### {rank}")
+                        fig = px.pie(
+                            values=rank_dist.values,
+                            names=rank_dist.index,
+                            width=400,
+                            height=400
+                        )
+                        fig.update_layout(
+                            uniformtext_minsize=12,
+                            uniformtext_mode='hide'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    # 複数選択可の質問は全体の分布のみを表示
+                    all_dist = dist.get('全体', pd.Series())
                     fig = px.pie(
-                        values=rank_dist.values,
-                        names=rank_dist.index,
+                        values=all_dist.values,
+                        names=all_dist.index,
                         width=400,
                         height=400
                     )
