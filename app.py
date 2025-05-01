@@ -94,7 +94,11 @@ def extract_themes(text_series, n_themes=5):
         if text:
             # janomeで単語分割
             tokens = tokenizer.tokenize(text)
-            words.extend([token.surface for token in tokens])
+            # 助詞を除外して単語を抽出
+            words.extend([
+                token.surface for token in tokens 
+                if token.part_of_speech.split(',')[0] not in ['助詞', '助動詞', '接続詞', '記号']
+            ])
     
     # 単語の出現頻度をカウント
     word_counts = Counter(words)
@@ -112,7 +116,11 @@ def build_co_occurrence_network(text_series, window_size=2):
         if text:
             # janomeで単語分割
             tokens = tokenizer.tokenize(text)
-            words.extend([token.surface for token in tokens])
+            # 助詞を除外して単語を抽出
+            words.extend([
+                token.surface for token in tokens 
+                if token.part_of_speech.split(',')[0] not in ['助詞', '助動詞', '接続詞', '記号']
+            ])
     
     # 共起関係をカウント
     co_occurrence = {}
@@ -217,7 +225,11 @@ def analyze_free_text(df, text_columns):
             # テキストを結合してjanomeで処理
             combined_text = ' '.join(processed_text)
             tokens = tokenizer.tokenize(combined_text)
-            parsed_text = ' '.join([token.surface for token in tokens])
+            # 助詞を除外して単語を抽出
+            parsed_text = ' '.join([
+                token.surface for token in tokens 
+                if token.part_of_speech.split(',')[0] not in ['助詞', '助動詞', '接続詞', '記号']
+            ])
             
             # フォントパスが利用可能か確認
             if FONT_PATH and os.path.exists(FONT_PATH):
