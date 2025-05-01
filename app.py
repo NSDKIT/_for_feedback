@@ -18,7 +18,7 @@ import openai
 
 # OpenAI APIキーの設定
 try:
-    openai.api_key = st.secrets["OPENAI_API_KEY"]
+    client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
@@ -43,8 +43,8 @@ def analyze_free_text_with_openai(text_series):
     
     try:
         # OpenAI APIを使用してテキスト分析を実行
-        response = openai.ChatCompletion.create(
-            model="GPT-4o mini",
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "あなたはテキスト分析の専門家です。与えられたテキストから主要なテーマや傾向を抽出し、構造化された分析結果を提供してください。"},
                 {"role": "user", "content": f"以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。\n\n{combined_text}"}
