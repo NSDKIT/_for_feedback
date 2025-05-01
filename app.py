@@ -15,6 +15,11 @@ import re
 from collections import Counter
 import itertools
 import os
+import MeCab
+import unicodedata
+import japanize_matplotlib
+import urllib.request
+import tempfile
 # import openai
 
 # # OpenAI APIキーの設定
@@ -33,15 +38,30 @@ st.set_page_config(
 
 # 日本語フォントの設定
 plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = ['Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic', 'Noto Sans CJK JP']
+plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic']
 
-# 日本語フォントのパスを設定
-if os.name == 'posix':  # macOS or Linux
-    FONT_PATH = '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc'  # macOS
-    if not os.path.exists(FONT_PATH):
-        FONT_PATH = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'  # Linux
-else:  # Windows
-    FONT_PATH = 'C:/Windows/Fonts/meiryo.ttc'
+# 日本語フォントのダウンロードと設定
+@st.cache_resource
+def get_japanese_font():
+    try:
+        # 一時ディレクトリの作成
+        temp_dir = tempfile.mkdtemp()
+        font_path = os.path.join(temp_dir, 'NotoSansCJKjp-Regular.otf')
+        
+        # Google FontsからNoto Sans CJK JPをダウンロード
+        font_url = 'https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf'
+        urllib.request.urlretrieve(font_url, font_path)
+        
+        return font_path
+    except Exception as e:
+        st.error(f"フォントのダウンロード中にエラーが発生しました: {str(e)}")
+        return None
+
+# フォントパスの取得
+FONT_PATH = get_japanese_font()
+
+# MeCabの初期化
+mecab = MeCab.Tagger("-Owakati")
 
 def preprocess_text(text_series):
     """テキストデータの前処理"""
@@ -57,12 +77,20 @@ def preprocess_text(text_series):
     # 不要な文字を削除
     text_series = text_series.str.replace(r'[^\w\s]', '', regex=True)
     
+    # テキストを正規化
+    text_series = text_series.apply(lambda x: unicodedata.normalize('NFKC', x))
+    
     return text_series
 
 def extract_themes(text_series, n_themes=5):
     """テーマの抽出"""
     # テキストを単語に分割
-    words = ' '.join(text_series).split()
+    words = []
+    for text in text_series:
+        if text:
+            # MeCabで単語分割
+            parsed = mecab.parse(text)
+            words.extend(parsed.split())
     
     # 単語の出現頻度をカウント
     word_counts = Counter(words)
@@ -75,7 +103,12 @@ def extract_themes(text_series, n_themes=5):
 def build_co_occurrence_network(text_series, window_size=2):
     """共起ネットワークの構築"""
     # テキストを単語に分割
-    words = ' '.join(text_series).split()
+    words = []
+    for text in text_series:
+        if text:
+            # MeCabで単語分割
+            parsed = mecab.parse(text)
+            words.extend(parsed.split())
     
     # 共起関係をカウント
     co_occurrence = {}
@@ -177,17 +210,30 @@ def analyze_free_text(df, text_columns):
         
         # ワードクラウドの生成
         try:
+            # テキストを結合してMeCabで処理
+            combined_text = ' '.join(processed_text)
+            parsed_text = mecab.parse(combined_text)
+            
+            # フォントパスが利用可能か確認
+            if FONT_PATH and os.path.exists(FONT_PATH):
+                font_path = FONT_PATH
+            else:
+                font_path = None
+                st.warning("日本語フォントが見つかりません。デフォルトフォントを使用します。")
+            
             wordcloud = WordCloud(
                 width=800,
                 height=400,
                 background_color='white',
-                font_path=None,  # デフォルトフォントを使用
+                font_path=font_path,  # 日本語フォントを指定
                 min_font_size=10,
                 max_font_size=100,
                 collocations=False,  # 日本語の場合はFalseに設定
                 regexp=r"[\w']+",  # 単語の区切りを調整
-                prefer_horizontal=0.8  # 横書きの比率を調整
-            ).generate(' '.join(processed_text))
+                prefer_horizontal=0.8,  # 横書きの比率を調整
+                colormap='viridis',  # カラーマップを指定
+                relative_scaling=0.5  # 単語の相対的なサイズを調整
+            ).generate(parsed_text)
         except Exception as e:
             st.error(f"ワードクラウドの生成中にエラーが発生しました: {str(e)}")
             wordcloud = None
