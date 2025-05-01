@@ -7,10 +7,6 @@ from scipy.stats import chi2_contingency
 import networkx as nx
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-import re
 from collections import Counter
 import itertools
 import os
@@ -101,8 +97,7 @@ def analyze_free_text_with_openai(text_series):
                 {"role": "system", "content": "あなたはアンケート分析の専門家です。"},
                 {"role": "user", "content": formatted_prompt}
             ],
-            temperature=0.7,
-            max_tokens=2000
+            temperature=0.7
         )
         
         # レスポンス処理
@@ -268,58 +263,35 @@ def analyze_all_survey_responses(df, text_columns, attributes, yes_no_questions)
     {text}
 
     # 出力形式
-    ### 1. 回答者属性サマリー:
-       [主要な属性分布と特徴を100字以内で要約]
+    ##### 回答者属性
+       [主要な属性分布と特徴を要約]
 
-    ### 2. 定量分析からの主要な発見:
-    #### 属性データの傾向:
-        - [発見1]: [データに基づく具体的な説明]
-        - [発見2]: [データに基づく具体的な説明]
-        - [発見3]: [データに基づく具体的な説明]
-       
-    #### 2択質問の傾向:
-        - [発見1]: [データに基づく具体的な説明]
-        - [発見2]: [データに基づく具体的な説明]
-        - [発見3]: [データに基づく具体的な説明]
-
-    ### 3. 採用動画全体の評価:
-       [定量・定性データを統合した総合評価を200字以内で]
-
-    ### 4. 戦略的示唆:
-    #### 短期的な改善施策 (1-3ヶ月):
-        - [データに基づく具体的な施策1]
-        - [データに基づく具体的な施策2]
-        - [データに基づく具体的な施策3]
-    
-    #### 中期的な戦略施策 (3-6ヶ月):
-        - [データに基づく具体的な施策1]
-        - [データに基づく具体的な施策2]
-        - [データに基づく具体的な施策3]
-    
-    #### 長期的な戦略転換 (6ヶ月以上):
-        - [データに基づく具体的な施策1]
-        - [データに基づく具体的な施策2]
-        - [データに基づく具体的な施策3]
-
-    ### 5. データから見る強み:
+    ##### データから見る強み:
        - [強み1]: [定量的な裏付けとともに説明]
        - [強み2]: [定量的な裏付けとともに説明]
        - [強み3]: [定量的な裏付けとともに説明]
-       - [強み4]: [定量的な裏付けとともに説明]
-       - [強み5]: [定量的な裏付けとともに説明]
 
-    ### 6. データから見る課題:
+    ##### データから見る課題:
        - [課題1]: [定量的な裏付けと想定される影響]
        - [課題2]: [定量的な裏付けと想定される影響]
        - [課題3]: [定量的な裏付けと想定される影響]
-       - [課題4]: [定量的な裏付けと想定される影響]
-       - [課題5]: [定量的な裏付けと想定される影響]
 
-    ### 7. 採用ブランディングへの示唆:
-       [定量・定性データに基づくブランディング戦略への示唆を150字以内で]
+    ##### アクションプラン:
+        短期的な改善施策 (1-3ヶ月):
+            - [データに基づく具体的な施策1]
+            - [データに基づく具体的な施策2]
+            - [データに基づく具体的な施策3]
+    
+        中期的な戦略施策 (3-6ヶ月):
+            - [データに基づく具体的な施策1]
+            - [データに基づく具体的な施策2]
+            - [データに基づく具体的な施策3]
+    
+        長期的な戦略転換 (6ヶ月以上):
+            - [データに基づく具体的な施策1]
+            - [データに基づく具体的な施策2]
+            - [データに基づく具体的な施策3]
 
-    ### 8. 次世代採用戦略に向けて:
-       [データに基づく将来戦略の方向性を150字以内で]
     """
     
     # 定量分析のサマリーを作成
@@ -349,8 +321,7 @@ def analyze_all_survey_responses(df, text_columns, attributes, yes_no_questions)
                 {"role": "system", "content": "あなたはアンケート分析と採用戦略の専門家です。"},
                 {"role": "user", "content": formatted_prompt}
             ],
-            temperature=0.7,
-            max_tokens=2000
+            temperature=0.7
         )
         
         # レスポンス処理
@@ -410,18 +381,16 @@ if uploaded_file is not None:
     analysis_results = visualize_analysis(df, attributes, yes_no_questions, text_columns)
     
     # タブの作成
-    tab_attributes, tab_yes_no, tab_text, tab_summary, tab_cross, tab_strategic = st.tabs([
+    tab_attributes, tab_yes_no, tab_text, tab_cross, tab_strategic = st.tabs([
         "1. 属性分析",
         "2. 2択質問分析",
         "3. 自由記述分析",
-        "4. 総合分析",
-        "5. クロス分析",
-        "6. 採用戦略分析"
+        "4. クロス分析",
+        "5. 総合分析"
     ])
     
     # 1. 属性分析タブ
     with tab_attributes:
-        st.markdown("### 1. 属性分析")
         # 3列のレイアウトを作成
         cols = st.columns(3)
         col_index = 0
@@ -493,10 +462,6 @@ if uploaded_file is not None:
     
     # 2. 2択質問分析タブ
     with tab_yes_no:
-        st.markdown("### 2. 2択質問分析")
-        
-        # 回答分布の表示
-        st.markdown("#### 回答分布")
         # 3列のレイアウトを作成
         cols = st.columns(3)
         col_index = 0
@@ -562,9 +527,7 @@ if uploaded_file is not None:
                 col_index += 1
     
     # 3. 自由記述分析タブ
-    with tab_text:
-        st.markdown("### 3. 自由記述分析")
-        
+    with tab_text:        
         # 質問ごとのサブタブを作成
         if analysis_results['text_analysis']:
             # サブタブのリストを作成
@@ -573,51 +536,14 @@ if uploaded_file is not None:
             
             # 各サブタブに分析結果を表示
             for tab, (column, analysis) in zip(text_tabs, analysis_results['text_analysis'].items()):
-                with tab:
-                    # 元の質問文を表示
-                    st.markdown(f"**質問文**: {column}")
-                    st.markdown("---")
-                    
+                with tab:                    
                     # OpenAIによる分析結果の表示
-                    st.markdown("#### AI分析結果")
                     for result in analysis['openai_analysis']:
                         st.markdown(result)
                         
-    # 4. 総合分析タブ
-    with tab_summary:
-        st.markdown("### 4. 総合分析")
-        
-        # 主成分分析
-        st.markdown("#### 主成分分析")
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
-        if len(numeric_columns) > 0:
-            pca = PCA(n_components=2)
-            pca_result = pca.fit_transform(df[numeric_columns])
-            fig = px.scatter(
-                x=pca_result[:, 0],
-                y=pca_result[:, 1],
-                title="主成分分析結果"
-            )
-            st.plotly_chart(fig)
-        
-        # クラスター分析
-        st.markdown("#### クラスター分析")
-        if len(numeric_columns) > 0:
-            kmeans = KMeans(n_clusters=3)
-            clusters = kmeans.fit_predict(df[numeric_columns])
-            fig = px.scatter(
-                x=pca_result[:, 0],
-                y=pca_result[:, 1],
-                color=clusters,
-                title="クラスター分析結果"
-            )
-            st.plotly_chart(fig)
-
-    # 5. クロス分析タブ
+    # 4. クロス分析タブ
     with tab_cross:
         def display_cross_analysis(df):
-            st.markdown("### 5. クロス分析")
-
             tabs = st.tabs([
                 "性別 × 興味のある業界",
                 "性別 × 興味のある職種",
@@ -641,7 +567,6 @@ if uploaded_file is not None:
 
             for tab, (row_attr, col_attr) in zip(tabs, cross_info):
                 with tab:
-                    st.markdown(f"#### {row_attr} × {col_attr} のクロス集計")
                     try:
                         ct = pd.crosstab(df[row_attr], df[col_attr])
                         ct = ct.loc[:, ct.sum().sort_values(ascending=False).index]  # カラムを頻度順に
@@ -659,10 +584,8 @@ if uploaded_file is not None:
         # クロス分析の実行
         display_cross_analysis(df)
 
-    # 6. 戦略分析タブ
+    # 5. 戦略分析タブ
     with tab_strategic:
-        st.markdown("### 6. 採用戦略分析")
-        
         if 'comprehensive_analysis' in analysis_results:
             # 戦略分析結果の表示
             st.markdown(analysis_results['comprehensive_analysis']['strategic_analysis'])
