@@ -202,15 +202,21 @@ def analyze_free_text(df, text_columns):
         co_occurrence = build_co_occurrence_network(processed_text)
         
         # ワードクラウドの生成
-        wordcloud = WordCloud(
-            width=800,
-            height=400,
-            background_color='white',
-            font_path=FONT_PATH,  # 日本語フォントを指定
-            min_font_size=10,
-            max_font_size=100,
-            collocations=False  # 日本語の場合はFalseに設定
-        ).generate(' '.join(processed_text))
+        try:
+            wordcloud = WordCloud(
+                width=800,
+                height=400,
+                background_color='white',
+                font_path=None,  # デフォルトフォントを使用
+                min_font_size=10,
+                max_font_size=100,
+                collocations=False,  # 日本語の場合はFalseに設定
+                regexp=r"[\w']+",  # 単語の区切りを調整
+                prefer_horizontal=0.8  # 横書きの比率を調整
+            ).generate(' '.join(processed_text))
+        except Exception as e:
+            st.error(f"ワードクラウドの生成中にエラーが発生しました: {str(e)}")
+            wordcloud = None
         
         results[column] = {
             'themes': themes,
@@ -447,10 +453,13 @@ if uploaded_file is not None:
             
             # ワードクラウドの表示
             st.markdown("##### ワードクラウド")
-            plt.figure(figsize=(10, 5))
-            plt.imshow(analysis['wordcloud'], interpolation='bilinear')
-            plt.axis('off')
-            st.pyplot(plt)
+            if analysis['wordcloud'] is not None:
+                plt.figure(figsize=(10, 5))
+                plt.imshow(analysis['wordcloud'], interpolation='bilinear')
+                plt.axis('off')
+                st.pyplot(plt)
+            else:
+                st.warning("ワードクラウドを生成できませんでした。")
     
     # 4. 総合分析タブ
     with tab_summary:
