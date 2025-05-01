@@ -129,7 +129,7 @@ MULTIPLE_CHOICE_QUESTIONS = [
     "▪︎ あなたが企業を選ぶ際に重視するポイントは？（上位3つまで）",
     "▪︎ 「生き生き働いている」と感じるのは、どのような状態ですか？（複数選択可）",
     "▪︎ あなたが「働きがい」を感じるのはどんなときを想像していますか？（複数選択可）",
-    " 就活において、どの情報源をよく利用しますか？（複数選択可）"
+    "▪︎ 就活において、どの情報源をよく利用しますか？（複数選択可）"
 ]
 
 def analyze_yes_no_questions(df, yes_no_questions, attributes):
@@ -235,7 +235,7 @@ if uploaded_file is not None:
     # 質問の分類
     attributes = [col for col in df.columns if '▪︎' in col]
     yes_no_questions = [col for col in df.columns if '⚫︎' in col]
-    text_columns = [col for col in df.columns if '・' in col]
+    text_columns = [col for col in df.columns if '#' in col]
     
     # 分析の実行
     analysis_results = visualize_analysis(df, attributes, yes_no_questions, text_columns)
