@@ -16,12 +16,12 @@ from collections import Counter
 import itertools
 # import openai
 
-# OpenAI APIキーの設定
-try:
-    openai.api_key = st.secrets["OPENAI_API_KEY"]
-except Exception as e:
-    st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
-    st.stop()
+# # OpenAI APIキーの設定
+# try:
+#     openai.api_key = st.secrets["OPENAI_API_KEY"]
+# except Exception as e:
+#     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
+#     st.stop()
 
 # ページ設定
 st.set_page_config(
