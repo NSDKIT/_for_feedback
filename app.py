@@ -77,12 +77,50 @@ def build_co_occurrence_network(text_series, window_size=2):
     
     return co_occurrence
 
+def process_ranked_attributes(df, question):
+    """属性データ用：順位付き複数回答の処理（全体分布も返す）"""
+    answers = []
+    for response in df[question]:
+        if pd.isna(response):
+            continue
+        items = [item.strip() for item in str(response).split('、')]
+        
+        # 質問タイプの判定
+        if "（上位3つまで）" in question:
+            # 上位3つまでの質問は順位付きで処理
+            for rank, item in enumerate(items, 1):
+                answers.append((item, rank))
+        elif "（複数選択可）" in question:
+            # 複数選択可の質問は順位なしで処理
+            for item in items:
+                answers.append((item, None))
+    
+    if not answers:
+        return {}
+    
+    result_df = pd.DataFrame(answers, columns=['回答', '順位'])
+    rank_distributions = {}
+    
+    if "（上位3つまで）" in question:
+        # 上位3つまでの質問の場合、順位ごとの分布を計算
+        max_rank = result_df['順位'].max()
+        for rank in range(1, max_rank + 1):
+            rank_answers = result_df[result_df['順位'] == rank]['回答']
+            if not rank_answers.empty:
+                rank_distributions[f"{rank}位"] = rank_answers.value_counts()
+    else:
+        # 複数選択可の質問の場合、全体の分布のみを計算
+        all_counts = result_df['回答'].value_counts()
+        rank_distributions['全体'] = all_counts
+    
+    return rank_distributions
+
 def analyze_attributes(df, attributes):
     """属性データの分析（通常属性＋複数回答属性の順位分布）"""
     stats = {}
     ranked_distributions = {}
     for attr in attributes:
-        if attr in MULTIPLE_CHOICE_QUESTIONS:
+        if "（上位3つまで）" in attr or "（複数選択可）" in attr:
             # 複数回答属性は順位ごとの分布を計算
             ranked_distributions[attr] = process_ranked_attributes(df, attr)
         else:
@@ -100,44 +138,12 @@ def analyze_attributes(df, attributes):
         cross_tabs[f"{attr1}_vs_{attr2}"] = pd.crosstab(df[attr1], df[attr2])
     return stats, cross_tabs, ranked_distributions
 
-def process_ranked_attributes(df, question):
-    """属性データ用：順位付き複数回答の処理（全体分布も返す）"""
-    answers = []
-    for response in df[question]:
-        if pd.isna(response):
-            continue
-        items = [item.strip() for item in str(response).split('、')]
-        for rank, item in enumerate(items, 1):
-            answers.append((item, rank))
-    if not answers:
-        return {}
-    result_df = pd.DataFrame(answers, columns=['回答', '順位'])
-    rank_distributions = {}
-    max_rank = result_df['順位'].max()
-    # 各順位ごとの分布
-    for rank in range(1, max_rank + 1):
-        rank_answers = result_df[result_df['順位'] == rank]['回答']
-        if not rank_answers.empty:
-            rank_distributions[f"{rank}位"] = rank_answers.value_counts()
-    # 全体分布
-    all_counts = result_df['回答'].value_counts()
-    rank_distributions['全体'] = all_counts
-    return rank_distributions
-
-# 複数回答の質問リスト
-MULTIPLE_CHOICE_QUESTIONS = [
-    "▪︎ あなたが企業を選ぶ際に重視するポイントは？（上位3つまで）",
-    "▪︎ 「生き生き働いている」と感じるのは、どのような状態ですか？（複数選択可）",
-    "▪︎ あなたが「働きがい」を感じるのはどんなときを想像していますか？（複数選択可）",
-    "▪︎ 就活において、どの情報源をよく利用しますか？（複数選択可）"
-]
-
 def analyze_yes_no_questions(df, yes_no_questions, attributes):
     """2択質問の分析"""
     # 1. 回答分布の集計
     response_dist = {}
     for question in yes_no_questions:
-        if question in MULTIPLE_CHOICE_QUESTIONS:
+        if "（上位3つまで）" in question or "（複数選択可）" in question:
             # 複数回答の質問は特別処理
             ranked_answers = process_ranked_attributes(df, question)
             if not ranked_answers:
@@ -258,18 +264,37 @@ if uploaded_file is not None:
             col_index = 0
             
             for attr in attributes:
-                if attr in MULTIPLE_CHOICE_QUESTIONS:
-                    # 複数回答の質問は順位ごとに独立した図を表示
+                if "（上位3つまで）" in attr or "（複数選択可）" in attr:
+                    # 複数回答の質問は質問タイプに応じて処理
                     rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
-                    rank_keys = [k for k in rank_distributions.keys() if k != '全体']
                     
-                    for rank in sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999):
+                    if "（上位3つまで）" in attr:
+                        # 上位3つまでの質問は順位ごとに独立した図を表示
+                        rank_keys = [k for k in rank_distributions.keys() if k != '全体']
+                        for rank in sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999):
+                            with cols[col_index % 3]:
+                                rank_dist = rank_distributions[rank]
+                                st.markdown(f"###### {attr} - {rank}")
+                                fig = px.pie(
+                                    values=rank_dist.values,
+                                    names=rank_dist.index,
+                                    width=400,
+                                    height=400
+                                )
+                                fig.update_layout(
+                                    uniformtext_minsize=12,
+                                    uniformtext_mode='hide'
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                            col_index += 1
+                    else:
+                        # 複数選択可の質問は全体の分布のみを表示
                         with cols[col_index % 3]:
-                            rank_dist = rank_distributions[rank]
-                            st.markdown(f"###### {attr} - {rank}")
+                            all_dist = rank_distributions.get('全体', pd.Series())
+                            st.markdown(f"###### {attr}")
                             fig = px.pie(
-                                values=rank_dist.values,
-                                names=rank_dist.index,
+                                values=all_dist.values,
+                                names=all_dist.index,
                                 width=400,
                                 height=400
                             )
