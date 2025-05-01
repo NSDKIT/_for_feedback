@@ -234,7 +234,7 @@ if uploaded_file is not None:
     
     # 質問の分類
     attributes = [col for col in df.columns if '▪︎' in col]
-    yes_no_questions = [col for col in df.columns if '⚫︎' in col]
+    yes_no_questions = [col for col in df.columns if '・' in col]
     text_columns = [col for col in df.columns if '#' in col]
     
     # 分析の実行
