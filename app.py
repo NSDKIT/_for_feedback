@@ -44,15 +44,20 @@ def analyze_free_text_with_anthropic(text_series):
     combined_text = ' '.join(text_series.dropna())
     
     try:
-        # Anthropic APIを使用してテキスト分析を実行
-        completion = client.completion(
+        # Anthropic APIを使用してテキスト分析を実行（新しいAPI形式）
+        message = client.messages.create(
             model="claude-3-sonnet-20240229",
-            prompt=f"\n\nHuman: あなたはテキスト分析の専門家です。以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。\n\n{combined_text}\n\nAssistant:",
-            max_tokens_to_sample=1000
+            max_tokens=1000,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"あなたはテキスト分析の専門家です。以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。\n\n{combined_text}"
+                }
+            ]
         )
         
-        if completion and completion.completion:
-            analysis_result = completion.completion
+        if message and message.content:
+            analysis_result = message.content[0].text
             results.append(analysis_result)
         else:
             results.append("分析結果を取得できませんでした。")
