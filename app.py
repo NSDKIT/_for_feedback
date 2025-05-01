@@ -18,12 +18,25 @@ import openai
 
 # OpenAI APIキーの設定
 try:
-    api_key = st.secrets["OPENAI_API_KEY"]
-    if not api_key:
-        st.error("OpenAI APIキーが設定されていません。")
+    if "OPENAI_API_KEY" not in st.secrets:
+        st.error("OpenAI APIキーが設定されていません。Streamlit Cloudのシークレット設定を確認してください。")
         st.stop()
+    
+    api_key = st.secrets["OPENAI_API_KEY"]
+    if not api_key or api_key.strip() == "":
+        st.error("OpenAI APIキーが空です。有効なAPIキーを設定してください。")
+        st.stop()
+    
     # クライアントを初期化
     client = openai.OpenAI(api_key=api_key)
+    
+    # テスト用のAPIコール
+    try:
+        client.models.list()
+    except Exception as e:
+        st.error(f"OpenAI APIキーが無効です: {str(e)}")
+        st.stop()
+        
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
@@ -49,7 +62,7 @@ def analyze_free_text_with_openai(text_series):
     try:
         # OpenAI APIを使用してテキスト分析を実行
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "あなたはテキスト分析の専門家です。与えられたテキストから主要なテーマや傾向を抽出し、構造化された分析結果を提供してください。"},
                 {"role": "user", "content": f"以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。\n\n{combined_text}"}
@@ -58,8 +71,11 @@ def analyze_free_text_with_openai(text_series):
             max_tokens=1000
         )
         
-        analysis_result = response.choices[0].message.content
-        results.append(analysis_result)
+        if response and response.choices:
+            analysis_result = response.choices[0].message.content
+            results.append(analysis_result)
+        else:
+            results.append("分析結果を取得できませんでした。")
         
     except Exception as e:
         st.error(f"OpenAI APIを使用した分析中にエラーが発生しました: {str(e)}")
