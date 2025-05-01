@@ -51,7 +51,7 @@ def analyze_free_text_with_anthropic(text_series):
     try:
         # 新しいAnthropic API形式でメッセージ作成
         message = client.messages.create(
-            model="claude-3-5-haiku-latest",
+            model="claude-3-haiku-20240307",
             max_tokens=1000,
             messages=[
                 {
@@ -368,17 +368,7 @@ if uploaded_file is not None:
                     st.markdown("#### AI分析結果")
                     for result in analysis['anthropic_analysis']:
                         st.markdown(result)
-                        
-                    # 回答数などの基本統計を表示
-                    if column in df.columns:
-                        st.markdown("#### 基本統計")
-                        total_responses = df[column].notna().sum()
-                        avg_length = df[column].str.len().mean() if df[column].dtype == 'object' else 0
-                        st.markdown(f"""
-                        - 回答数: {total_responses}件
-                        - 平均文字数: {avg_length:.1f}文字
-                        """)
-    
+
     # 4. 総合分析タブ
     with tab_summary:
         st.markdown("### 4. 総合分析")
