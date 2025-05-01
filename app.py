@@ -25,9 +25,18 @@ st.set_page_config(
 
 # Anthropic APIキーの設定
 try:
-    api_key = st.secrets["ANTHROPIC_API_KEY"]    
-    # クライアントを初期化
-    client = Anthropic(api_key=api_key)        
+    api_key = st.secrets["ANTHROPIC_API_KEY"]
+    
+    # 最新のAnthropicライブラリをインポート
+    import anthropic
+    
+    # バージョン確認（参考用）
+    import pkg_resources
+    anthropic_version = pkg_resources.get_distribution("anthropic").version
+    st.info(f"Anthropicライブラリのバージョン: {anthropic_version}")
+    
+    # 新しいAPI形式でクライアント初期化
+    client = anthropic.Anthropic(api_key=api_key)
 except Exception as e:
     st.error(f"Anthropic APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
@@ -37,14 +46,14 @@ plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic']
 
 def analyze_free_text_with_anthropic(text_series):
-    """Anthropic APIを使用した自由記述の分析"""
+    """Anthropic APIを使用した自由記述の分析（新しいAPI形式）"""
     results = []
     
     # テキストを結合して分析用のプロンプトを作成
     combined_text = ' '.join(text_series.dropna())
     
     try:
-        # Anthropic APIを使用してテキスト分析を実行（新しいAPI形式）
+        # 新しいAnthropic API形式でメッセージ作成
         message = client.messages.create(
             model="claude-3-sonnet-20240229",
             max_tokens=1000,
@@ -56,7 +65,9 @@ def analyze_free_text_with_anthropic(text_series):
             ]
         )
         
-        if message and message.content:
+        # レスポンス処理
+        if message and hasattr(message, 'content') and message.content:
+            # content[0].textでテキスト内容を取得
             analysis_result = message.content[0].text
             results.append(analysis_result)
         else:
@@ -64,7 +75,7 @@ def analyze_free_text_with_anthropic(text_series):
         
     except Exception as e:
         st.error(f"Anthropic APIを使用した分析中にエラーが発生しました: {str(e)}")
-        results.append("分析に失敗しました。")
+        results.append(f"分析に失敗しました。エラー: {str(e)}")
     
     return results
 
