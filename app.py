@@ -45,7 +45,7 @@ def analyze_free_text_with_anthropic(text_series):
     
     try:
         # Anthropic APIを使用してテキスト分析を実行
-        response = client.messages.create(
+        response = client.beta.messages.create(
             model="claude-3-sonnet-20240229",
             max_tokens=1000,
             messages=[{
