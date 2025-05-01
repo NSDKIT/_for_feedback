@@ -15,7 +15,7 @@ import re
 from collections import Counter
 import itertools
 import os
-from fugashi import Tagger
+from janome.tokenizer import Tokenizer
 import unicodedata
 import japanize_matplotlib
 import urllib.request
@@ -60,8 +60,8 @@ def get_japanese_font():
 # フォントパスの取得
 FONT_PATH = get_japanese_font()
 
-# fugashiの初期化
-tagger = Tagger()
+# janomeの初期化
+tokenizer = Tokenizer()
 
 def preprocess_text(text_series):
     """テキストデータの前処理"""
@@ -88,8 +88,8 @@ def extract_themes(text_series, n_themes=5):
     words = []
     for text in text_series:
         if text:
-            # fugashiで単語分割
-            tokens = tagger(text)
+            # janomeで単語分割
+            tokens = tokenizer.tokenize(text)
             words.extend([token.surface for token in tokens])
     
     # 単語の出現頻度をカウント
@@ -106,8 +106,8 @@ def build_co_occurrence_network(text_series, window_size=2):
     words = []
     for text in text_series:
         if text:
-            # fugashiで単語分割
-            tokens = tagger(text)
+            # janomeで単語分割
+            tokens = tokenizer.tokenize(text)
             words.extend([token.surface for token in tokens])
     
     # 共起関係をカウント
@@ -210,9 +210,9 @@ def analyze_free_text(df, text_columns):
         
         # ワードクラウドの生成
         try:
-            # テキストを結合してfugashiで処理
+            # テキストを結合してjanomeで処理
             combined_text = ' '.join(processed_text)
-            tokens = tagger(combined_text)
+            tokens = tokenizer.tokenize(combined_text)
             parsed_text = ' '.join([token.surface for token in tokens])
             
             # フォントパスが利用可能か確認
