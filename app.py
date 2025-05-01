@@ -14,7 +14,7 @@ import re
 from collections import Counter
 import itertools
 import os
-from anthropic import Anthropic
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 
 # ページ設定
 st.set_page_config(
@@ -45,16 +45,14 @@ def analyze_free_text_with_anthropic(text_series):
     
     try:
         # Anthropic APIを使用してテキスト分析を実行
-        response = client.messages.create(
+        completion = client.completions.create(
             model="claude-3-sonnet-20240229",
-            system="あなたはテキスト分析の専門家です。",
-            content=f"""以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。
-
-{combined_text}"""
+            prompt=f"{HUMAN_PROMPT}あなたはテキスト分析の専門家です。以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。\n\n{combined_text}{AI_PROMPT}",
+            max_tokens_to_sample=1000
         )
         
-        if response and response.content:
-            analysis_result = response.content
+        if completion and completion.completion:
+            analysis_result = completion.completion
             results.append(analysis_result)
         else:
             results.append("分析結果を取得できませんでした。")
