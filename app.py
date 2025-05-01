@@ -32,11 +32,8 @@ try:
         st.error("OpenAI APIキーの形式が正しくありません。'sk-'で始まる必要があります。")
         st.stop()
     
-    # クライアントを初期化（シンプルな設定）
-    client = openai.OpenAI(
-        api_key=api_key,
-        base_url="https://api.openai.com/v1"
-    )
+    # クライアントを初期化（最もシンプルな形式）
+    client = openai.OpenAI()
     
     # テスト用のAPIコール
     try:
@@ -69,6 +66,9 @@ def analyze_free_text_with_openai(text_series):
     combined_text = ' '.join(text_series.dropna())
     
     try:
+        # クライアントを初期化
+        client = openai.OpenAI()
+        
         # OpenAI APIを使用してテキスト分析を実行
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
