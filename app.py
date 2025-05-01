@@ -22,7 +22,10 @@ try:
     if not api_key:
         st.error("OpenAI APIキーが設定されていません。")
         st.stop()
-    client = openai.OpenAI(api_key=api_key)
+    # 環境変数にAPIキーを設定
+    os.environ["OPENAI_API_KEY"] = api_key
+    # クライアントを初期化
+    client = openai.OpenAI()
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
