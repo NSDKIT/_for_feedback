@@ -274,10 +274,12 @@ if uploaded_file is not None:
                         for rank in sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999):
                             with cols[col_index % 3]:
                                 rank_dist = rank_distributions[rank]
+                                # 回答数でソート
+                                sorted_dist = rank_dist.sort_values(ascending=False)
                                 st.markdown(f"###### {attr} - {rank}")
                                 fig = px.pie(
-                                    values=rank_dist.values,
-                                    names=rank_dist.index,
+                                    values=sorted_dist.values,
+                                    names=sorted_dist.index,
                                     width=400,
                                     height=400
                                 )
@@ -291,10 +293,12 @@ if uploaded_file is not None:
                         # 複数選択可の質問は全体の分布のみを表示
                         with cols[col_index % 3]:
                             all_dist = rank_distributions.get('全体', pd.Series())
+                            # 回答数でソート
+                            sorted_dist = all_dist.sort_values(ascending=False)
                             st.markdown(f"###### {attr}")
                             fig = px.pie(
-                                values=all_dist.values,
-                                names=all_dist.index,
+                                values=sorted_dist.values,
+                                names=sorted_dist.index,
                                 width=400,
                                 height=400
                             )
@@ -308,10 +312,12 @@ if uploaded_file is not None:
                     # 通常の属性は1つの図を表示
                     with cols[col_index % 3]:
                         stat = analysis_results['stats'][attr]
+                        # 回答数でソート
+                        sorted_dist = pd.Series(stat['distribution']).sort_values(ascending=False)
                         st.markdown(f"###### {attr}")
                         fig = px.pie(
-                            values=list(stat['distribution'].values()),
-                            names=list(stat['distribution'].keys()),
+                            values=sorted_dist.values,
+                            names=sorted_dist.index,
                             width=400,
                             height=400
                         )
@@ -343,10 +349,12 @@ if uploaded_file is not None:
                     # 上位3つまでの質問は順位ごとの円グラフ
                     for rank, rank_dist in dist.items():
                         with cols[col_index % 3]:
+                            # 回答数でソート
+                            sorted_dist = rank_dist.sort_values(ascending=False)
                             st.markdown(f"###### {question} - {rank}")
                             fig = px.pie(
-                                values=rank_dist.values,
-                                names=rank_dist.index,
+                                values=sorted_dist.values,
+                                names=sorted_dist.index,
                                 width=400,
                                 height=400
                             )
@@ -360,10 +368,12 @@ if uploaded_file is not None:
                     # 複数選択可の質問は全体の分布のみを表示
                     with cols[col_index % 3]:
                         all_dist = dist.get('全体', pd.Series())
+                        # 回答数でソート
+                        sorted_dist = all_dist.sort_values(ascending=False)
                         st.markdown(f"###### {question}")
                         fig = px.pie(
-                            values=all_dist.values,
-                            names=all_dist.index,
+                            values=sorted_dist.values,
+                            names=sorted_dist.index,
                             width=400,
                             height=400
                         )
@@ -376,10 +386,12 @@ if uploaded_file is not None:
             else:
                 # 通常の2択質問
                 with cols[col_index % 3]:
+                    # 回答数でソート
+                    sorted_dist = dist.sort_values(ascending=False)
                     st.markdown(f"###### {question}")
                     fig = px.pie(
-                        values=dist.values,
-                        names=dist.index,
+                        values=sorted_dist.values,
+                        names=sorted_dist.index,
                         width=400,
                         height=400
                     )
