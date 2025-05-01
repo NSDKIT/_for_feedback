@@ -15,7 +15,7 @@ import re
 from collections import Counter
 import itertools
 import os
-import MeCab
+from fugashi import Tagger
 import unicodedata
 import japanize_matplotlib
 import urllib.request
@@ -60,8 +60,8 @@ def get_japanese_font():
 # フォントパスの取得
 FONT_PATH = get_japanese_font()
 
-# MeCabの初期化
-mecab = MeCab.Tagger("-Owakati")
+# fugashiの初期化
+tagger = Tagger()
 
 def preprocess_text(text_series):
     """テキストデータの前処理"""
@@ -88,9 +88,9 @@ def extract_themes(text_series, n_themes=5):
     words = []
     for text in text_series:
         if text:
-            # MeCabで単語分割
-            parsed = mecab.parse(text)
-            words.extend(parsed.split())
+            # fugashiで単語分割
+            tokens = tagger(text)
+            words.extend([token.surface for token in tokens])
     
     # 単語の出現頻度をカウント
     word_counts = Counter(words)
@@ -106,9 +106,9 @@ def build_co_occurrence_network(text_series, window_size=2):
     words = []
     for text in text_series:
         if text:
-            # MeCabで単語分割
-            parsed = mecab.parse(text)
-            words.extend(parsed.split())
+            # fugashiで単語分割
+            tokens = tagger(text)
+            words.extend([token.surface for token in tokens])
     
     # 共起関係をカウント
     co_occurrence = {}
@@ -210,9 +210,10 @@ def analyze_free_text(df, text_columns):
         
         # ワードクラウドの生成
         try:
-            # テキストを結合してMeCabで処理
+            # テキストを結合してfugashiで処理
             combined_text = ' '.join(processed_text)
-            parsed_text = mecab.parse(combined_text)
+            tokens = tagger(combined_text)
+            parsed_text = ' '.join([token.surface for token in tokens])
             
             # フォントパスが利用可能か確認
             if FONT_PATH and os.path.exists(FONT_PATH):
