@@ -18,7 +18,11 @@ import openai
 
 # OpenAI APIキーの設定
 try:
-    client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    api_key = st.secrets["OPENAI_API_KEY"]
+    if not api_key:
+        st.error("OpenAI APIキーが設定されていません。")
+        st.stop()
+    client = openai.OpenAI(api_key=api_key)
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
