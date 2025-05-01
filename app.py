@@ -141,11 +141,7 @@ def analyze_attributes(df, attributes):
                 'freq': value_counts.iloc[0] if not value_counts.empty else 0,
                 'distribution': value_counts.to_dict()
             }
-    # クロス集計
-    cross_tabs = {}
-    for attr1, attr2 in itertools.combinations(attributes, 2):
-        cross_tabs[f"{attr1}_vs_{attr2}"] = pd.crosstab(df[attr1], df[attr2])
-    return stats, cross_tabs, ranked_distributions
+    return stats, ranked_distributions
 
 def analyze_yes_no_questions(df, yes_no_questions, attributes):
     """2択質問の分析"""
@@ -163,29 +159,7 @@ def analyze_yes_no_questions(df, yes_no_questions, attributes):
             # 通常の2択質問
             response_dist[question] = df[question].value_counts(normalize=True)
     
-    # 2. 属性別の傾向分析
-    trend_analysis = {}
-    for question in yes_no_questions:
-        for attribute in attributes:
-            trend_analysis[f"{question}_by_{attribute}"] = pd.crosstab(
-                df[attribute], 
-                df[question], 
-                normalize='index'
-            )
-    
-    # 3. カイ二乗検定
-    chi2_results = {}
-    for question in yes_no_questions:
-        for attribute in attributes:
-            contingency_table = pd.crosstab(df[attribute], df[question])
-            chi2, p, dof, expected = chi2_contingency(contingency_table)
-            chi2_results[f"{question}_vs_{attribute}"] = {
-                'chi2': chi2,
-                'p_value': p,
-                'dof': dof
-            }
-    
-    return response_dist, trend_analysis, chi2_results
+    return response_dist
 
 def analyze_free_text(df, text_columns):
     """自由記述の分析"""
@@ -229,20 +203,15 @@ def analyze_free_text(df, text_columns):
 def visualize_analysis(df, attributes, yes_no_questions, text_columns):
     """分析結果の可視化"""
     # 属性データの分析
-    stats, cross_tabs, attribute_ranked = analyze_attributes(df, attributes)
+    stats, attribute_ranked = analyze_attributes(df, attributes)
     # 2択質問の分析
-    response_dist, trend_analysis, chi2_results = analyze_yes_no_questions(
-        df, yes_no_questions, attributes
-    )
+    response_dist = analyze_yes_no_questions(df, yes_no_questions, attributes)
     # 自由記述の分析
     text_analysis = analyze_free_text(df, text_columns)
     return {
         'stats': stats,
-        'cross_tabs': cross_tabs,
         'attribute_ranked': attribute_ranked,
         'response_dist': response_dist,
-        'trend_analysis': trend_analysis,
-        'chi2_results': chi2_results,
         'text_analysis': text_analysis
     }
 
@@ -275,45 +244,24 @@ if uploaded_file is not None:
     # 1. 属性分析タブ
     with tab_attributes:
         st.markdown("### 1. 属性分析")
-        subtab_dist, subtab_cross = st.tabs(["属性ごとの分布（円グラフ）", "クロス集計"])
-        with subtab_dist:
-            # 3列のレイアウトを作成
-            cols = st.columns(3)
-            col_index = 0
-            
-            for attr in attributes:
-                if "（上位3つまで）" in attr or "（複数選択可）" in attr:
-                    # 複数回答の質問は質問タイプに応じて処理
-                    rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
-                    
-                    if "（上位3つまで）" in attr:
-                        # 上位3つまでの質問は順位ごとに独立した図を表示
-                        rank_keys = [k for k in rank_distributions.keys() if k != '全体']
-                        for rank in sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999):
-                            with cols[col_index % 3]:
-                                rank_dist = rank_distributions[rank]
-                                # 回答数でソート
-                                sorted_dist = rank_dist.sort_values(ascending=False)
-                                st.markdown(f"###### {attr} - {rank}")
-                                fig = px.pie(
-                                    values=sorted_dist.values,
-                                    names=sorted_dist.index,
-                                    width=400,
-                                    height=400
-                                )
-                                fig.update_layout(
-                                    uniformtext_minsize=12,
-                                    uniformtext_mode='hide'
-                                )
-                                st.plotly_chart(fig, use_container_width=True)
-                            col_index += 1
-                    else:
-                        # 複数選択可の質問は全体の分布のみを表示
+        # 3列のレイアウトを作成
+        cols = st.columns(3)
+        col_index = 0
+        
+        for attr in attributes:
+            if "（上位3つまで）" in attr or "（複数選択可）" in attr:
+                # 複数回答の質問は質問タイプに応じて処理
+                rank_distributions = analysis_results['attribute_ranked'].get(attr, {})
+                
+                if "（上位3つまで）" in attr:
+                    # 上位3つまでの質問は順位ごとに独立した図を表示
+                    rank_keys = [k for k in rank_distributions.keys() if k != '全体']
+                    for rank in sorted(rank_keys, key=lambda x: int(x.replace('位','')) if x.endswith('位') else 999):
                         with cols[col_index % 3]:
-                            all_dist = rank_distributions.get('全体', pd.Series())
+                            rank_dist = rank_distributions[rank]
                             # 回答数でソート
-                            sorted_dist = all_dist.sort_values(ascending=False)
-                            st.markdown(f"###### {attr}")
+                            sorted_dist = rank_dist.sort_values(ascending=False)
+                            st.markdown(f"###### {attr} - {rank}")
                             fig = px.pie(
                                 values=sorted_dist.values,
                                 names=sorted_dist.index,
@@ -327,11 +275,11 @@ if uploaded_file is not None:
                             st.plotly_chart(fig, use_container_width=True)
                         col_index += 1
                 else:
-                    # 通常の属性は1つの図を表示
+                    # 複数選択可の質問は全体の分布のみを表示
                     with cols[col_index % 3]:
-                        stat = analysis_results['stats'][attr]
+                        all_dist = rank_distributions.get('全体', pd.Series())
                         # 回答数でソート
-                        sorted_dist = pd.Series(stat['distribution']).sort_values(ascending=False)
+                        sorted_dist = all_dist.sort_values(ascending=False)
                         st.markdown(f"###### {attr}")
                         fig = px.pie(
                             values=sorted_dist.values,
@@ -345,10 +293,25 @@ if uploaded_file is not None:
                         )
                         st.plotly_chart(fig, use_container_width=True)
                     col_index += 1
-        with subtab_cross:
-            for key, cross_tab in analysis_results['cross_tabs'].items():
-                st.markdown(f"##### {key}")
-                st.write(cross_tab)
+            else:
+                # 通常の属性は1つの図を表示
+                with cols[col_index % 3]:
+                    stat = analysis_results['stats'][attr]
+                    # 回答数でソート
+                    sorted_dist = pd.Series(stat['distribution']).sort_values(ascending=False)
+                    st.markdown(f"###### {attr}")
+                    fig = px.pie(
+                        values=sorted_dist.values,
+                        names=sorted_dist.index,
+                        width=400,
+                        height=400
+                    )
+                    fig.update_layout(
+                        uniformtext_minsize=12,
+                        uniformtext_mode='hide'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                col_index += 1
     
     # 2. 2択質問分析タブ
     with tab_yes_no:
@@ -419,25 +382,6 @@ if uploaded_file is not None:
                     )
                     st.plotly_chart(fig, use_container_width=True)
                 col_index += 1
-        
-        # 傾向分析の表示
-        st.markdown("#### 傾向分析")
-        for key, trend in analysis_results['trend_analysis'].items():
-            st.markdown(f"##### {key}")
-            fig = px.imshow(
-                trend,
-                text_auto=".2f",
-                aspect="auto"
-            )
-            st.plotly_chart(fig)
-        
-        # カイ二乗検定結果の表示
-        st.markdown("#### 統計的有意差の検定")
-        for key, result in analysis_results['chi2_results'].items():
-            st.markdown(f"##### {key}")
-            st.write(f"カイ二乗値: {result['chi2']:.2f}")
-            st.write(f"p値: {result['p_value']:.4f}")
-            st.write(f"自由度: {result['dof']}")
     
     # 3. 自由記述分析タブ
     with tab_text:
