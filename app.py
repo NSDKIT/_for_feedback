@@ -14,7 +14,7 @@ import re
 from collections import Counter
 import itertools
 import os
-import openai
+import anthropic
 
 # ページ設定
 st.set_page_config(
@@ -23,63 +23,61 @@ st.set_page_config(
     layout="wide"
 )
 
-# OpenAI APIキーの設定
+# Anthropic APIキーの設定
 try:
-    api_key = st.secrets["OPENAI_API_KEY"]    
+    api_key = st.secrets["ANTHROPIC_API_KEY"]    
     # クライアントを初期化
-    client = openai.OpenAI(api_key=api_key)        
+    client = anthropic.Anthropic(api_key=api_key)        
 except Exception as e:
-    st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
+    st.error(f"Anthropic APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
 
 # 日本語フォントの設定
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic']
 
-def analyze_free_text_with_openai(text_series):
-    """OpenAI APIを使用した自由記述の分析"""
+def analyze_free_text_with_anthropic(text_series):
+    """Anthropic APIを使用した自由記述の分析"""
     results = []
     
     # テキストを結合して分析用のプロンプトを作成
     combined_text = ' '.join(text_series.dropna())
     
     try:
-        # クライアントを初期化
-        client = openai.OpenAI()
-        
-        # OpenAI APIを使用してテキスト分析を実行
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "あなたはテキスト分析の専門家です。与えられたテキストから主要なテーマや傾向を抽出し、構造化された分析結果を提供してください。"},
-                {"role": "user", "content": f"以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。\n\n{combined_text}"}
-            ],
-            temperature=0.7,
-            max_tokens=1000
+        # Anthropic APIを使用してテキスト分析を実行
+        response = client.messages.create(
+            model="claude-3-sonnet-20240229",
+            max_tokens=1000,
+            messages=[{
+                "role": "user",
+                "content": f"""あなたはテキスト分析の専門家です。以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。
+
+{combined_text}"""
+            }]
         )
         
-        if response and response.choices:
-            analysis_result = response.choices[0].message.content
+        if response and response.content:
+            analysis_result = response.content[0].text
             results.append(analysis_result)
         else:
             results.append("分析結果を取得できませんでした。")
         
     except Exception as e:
-        st.error(f"OpenAI APIを使用した分析中にエラーが発生しました: {str(e)}")
+        st.error(f"Anthropic APIを使用した分析中にエラーが発生しました: {str(e)}")
         results.append("分析に失敗しました。")
     
     return results
 
 def analyze_free_text(df, text_columns):
-    """自由記述の分析（OpenAI APIのみ）"""
+    """自由記述の分析（Anthropic APIのみ）"""
     results = {}
     
     for column in text_columns:
-        # OpenAI APIを使用した分析
-        openai_analysis = analyze_free_text_with_openai(df[column])
+        # Anthropic APIを使用した分析
+        anthropic_analysis = analyze_free_text_with_anthropic(df[column])
         
         results[column] = {
-            'openai_analysis': openai_analysis
+            'anthropic_analysis': anthropic_analysis
         }
     
     return results
@@ -349,9 +347,9 @@ if uploaded_file is not None:
         for column, analysis in analysis_results['text_analysis'].items():
             st.markdown(f"#### {column}")
             
-            # OpenAIによる分析結果の表示
-            st.markdown("##### AIによる分析")
-            for result in analysis['openai_analysis']:
+            # Anthropicによる分析結果の表示
+            st.markdown("##### Anthropicによる分析")
+            for result in analysis['anthropic_analysis']:
                 st.write(result)
     
     # 4. 総合分析タブ
