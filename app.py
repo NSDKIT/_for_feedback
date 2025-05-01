@@ -344,7 +344,7 @@ def analyze_all_survey_responses(df, text_columns, attributes, yes_no_questions)
     try:
         # OpenAI APIを使用して分析を実行
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4-turbo-preview",
             messages=[
                 {"role": "system", "content": "あなたはアンケート分析と採用戦略の専門家です。"},
                 {"role": "user", "content": formatted_prompt}
