@@ -25,31 +25,9 @@ st.set_page_config(
 
 # OpenAI APIキーの設定
 try:
-    if "OPENAI_API_KEY" not in st.secrets:
-        st.error("OpenAI APIキーが設定されていません。Streamlit Cloudのシークレット設定を確認してください。")
-        st.stop()
-    
-    api_key = st.secrets["OPENAI_API_KEY"]
-    if not api_key or api_key.strip() == "":
-        st.error("OpenAI APIキーが空です。有効なAPIキーを設定してください。")
-        st.stop()
-    
-    # APIキーの形式を確認
-    if not api_key.startswith("sk-"):
-        st.error("OpenAI APIキーの形式が正しくありません。'sk-'で始まる必要があります。")
-        st.stop()
-    
+    api_key = st.secrets["OPENAI_API_KEY"]    
     # クライアントを初期化
-    client = openai.OpenAI(api_key=api_key)
-    
-    # テスト用のAPIコール
-    try:
-        models = client.models.list()
-        st.success("OpenAI APIキーが正常に設定されました。")
-    except Exception as e:
-        st.error(f"OpenAI APIキーが無効です: {str(e)}")
-        st.stop()
-        
+    client = openai.OpenAI(api_key=api_key)        
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
