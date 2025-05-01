@@ -14,6 +14,7 @@ from sklearn.preprocessing import StandardScaler
 import re
 from collections import Counter
 import itertools
+import os
 # import openai
 
 # # OpenAI APIキーの設定
@@ -33,6 +34,14 @@ st.set_page_config(
 # 日本語フォントの設定
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic', 'Noto Sans CJK JP']
+
+# 日本語フォントのパスを設定
+if os.name == 'posix':  # macOS or Linux
+    FONT_PATH = '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc'  # macOS
+    if not os.path.exists(FONT_PATH):
+        FONT_PATH = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'  # Linux
+else:  # Windows
+    FONT_PATH = 'C:/Windows/Fonts/meiryo.ttc'
 
 def preprocess_text(text_series):
     """テキストデータの前処理"""
@@ -197,7 +206,10 @@ def analyze_free_text(df, text_columns):
             width=800,
             height=400,
             background_color='white',
-            font_path=None  # システムのデフォルトフォントを使用
+            font_path=FONT_PATH,  # 日本語フォントを指定
+            min_font_size=10,
+            max_font_size=100,
+            collocations=False  # 日本語の場合はFalseに設定
         ).generate(' '.join(processed_text))
         
         results[column] = {
