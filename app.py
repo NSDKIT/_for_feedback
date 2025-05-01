@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 from scipy.stats import chi2_contingency
 import networkx as nx
 import matplotlib.pyplot as plt
-from wordcloud import WordCloud
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
@@ -15,18 +14,14 @@ import re
 from collections import Counter
 import itertools
 import os
-from janome.tokenizer import Tokenizer
-import unicodedata
-import urllib.request
-import tempfile
-# import openai
+import openai
 
-# # OpenAI APIキーの設定
-# try:
-#     openai.api_key = st.secrets["OPENAI_API_KEY"]
-# except Exception as e:
-#     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
-#     st.stop()
+# OpenAI APIキーの設定
+try:
+    openai.api_key = st.secrets["OPENAI_API_KEY"]
+except Exception as e:
+    st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
+    st.stop()
 
 # ページ設定
 st.set_page_config(
@@ -39,135 +34,47 @@ st.set_page_config(
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Takao', 'IPAexGothic', 'IPAPGothic', 'VL PGothic']
 
-# 日本語フォントのダウンロードと設定
-@st.cache_resource
-def get_japanese_font():
+def analyze_free_text_with_openai(text_series):
+    """OpenAI APIを使用した自由記述の分析"""
+    results = []
+    
+    # テキストを結合して分析用のプロンプトを作成
+    combined_text = ' '.join(text_series.dropna())
+    
     try:
-        # 一時ディレクトリの作成
-        temp_dir = tempfile.mkdtemp()
-        font_path = os.path.join(temp_dir, 'NotoSansCJKjp-Regular.otf')
+        # OpenAI APIを使用してテキスト分析を実行
+        response = openai.ChatCompletion.create(
+            model="GPT-4o mini",
+            messages=[
+                {"role": "system", "content": "あなたはテキスト分析の専門家です。与えられたテキストから主要なテーマや傾向を抽出し、構造化された分析結果を提供してください。"},
+                {"role": "user", "content": f"以下のテキストを分析し、主要なテーマ、傾向、重要なポイントを抽出してください。また、全体的な印象や特徴も含めてください。\n\n{combined_text}"}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
         
-        # Google FontsからNoto Sans CJK JPをダウンロード
-        font_url = 'https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf'
-        urllib.request.urlretrieve(font_url, font_path)
+        analysis_result = response.choices[0].message.content
+        results.append(analysis_result)
         
-        # matplotlibのフォント設定を更新
-        plt.rcParams['font.family'] = 'sans-serif'
-        plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP']
-        plt.rcParams['axes.unicode_minus'] = False
-        
-        return font_path
     except Exception as e:
-        st.error(f"フォントのダウンロード中にエラーが発生しました: {str(e)}")
-        return None
+        st.error(f"OpenAI APIを使用した分析中にエラーが発生しました: {str(e)}")
+        results.append("分析に失敗しました。")
+    
+    return results
 
-# フォントパスの取得
-FONT_PATH = get_japanese_font()
-
-# janomeの初期化
-tokenizer = Tokenizer()
-
-def preprocess_text(text_series):
-    """テキストデータの前処理"""
-    # NaNを空文字列に変換
-    text_series = text_series.fillna('')
+def analyze_free_text(df, text_columns):
+    """自由記述の分析（OpenAI APIのみ）"""
+    results = {}
     
-    # 全角英数字を半角に変換
-    text_series = text_series.str.translate(str.maketrans(
-        'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ０１２３４５６７８９',
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    ))
+    for column in text_columns:
+        # OpenAI APIを使用した分析
+        openai_analysis = analyze_free_text_with_openai(df[column])
+        
+        results[column] = {
+            'openai_analysis': openai_analysis
+        }
     
-    # 不要な文字を削除
-    text_series = text_series.str.replace(r'[^\w\s]', '', regex=True)
-    
-    # テキストを正規化
-    text_series = text_series.apply(lambda x: unicodedata.normalize('NFKC', x))
-    
-    return text_series
-
-def extract_themes(text_series, n_themes=5):
-    """テーマの抽出"""
-    # テキストを単語に分割
-    words = []
-    for text in text_series:
-        if text:
-            # janomeで単語分割
-            tokens = tokenizer.tokenize(text)
-            # 品詞と活用形を考慮して単語を抽出
-            for token in tokens:
-                pos_info = token.part_of_speech.split(',')
-                pos = pos_info[0]  # 品詞
-                pos_detail = pos_info[1] if len(pos_info) > 1 else ''  # 品詞細分類
-                base_form = token.base_form  # 基本形
-
-                # 以下の条件で単語を抽出
-                if (
-                    # 名詞（数詞、非自立、代名詞以外）
-                    (pos == '名詞' and pos_detail not in ['数', '非自立', '代名詞']) or
-                    # 動詞（基本形を使用、助動詞化したものは除外）
-                    (pos == '動詞' and pos_detail not in ['非自立'] and base_form != token.surface) or
-                    # 形容詞（基本形を使用）
-                    (pos == '形容詞' and pos_detail not in ['非自立']) or
-                    # 形容動詞（基本形を使用）
-                    pos == '形容動詞'
-                ):
-                    # 動詞、形容詞、形容動詞は基本形を使用
-                    word = base_form if pos in ['動詞', '形容詞', '形容動詞'] else token.surface
-                    # 一文字の単語は除外
-                    if len(word) > 1:
-                        words.append(word)
-    
-    # 単語の出現頻度をカウント
-    word_counts = Counter(words)
-    
-    # 上位n_themes個のテーマを抽出
-    themes = [word for word, count in word_counts.most_common(n_themes)]
-    
-    return themes
-
-def build_co_occurrence_network(text_series, window_size=2):
-    """共起ネットワークの構築"""
-    # テキストを単語に分割
-    words = []
-    for text in text_series:
-        if text:
-            # janomeで単語分割
-            tokens = tokenizer.tokenize(text)
-            # 品詞と活用形を考慮して単語を抽出
-            text_words = []
-            for token in tokens:
-                pos_info = token.part_of_speech.split(',')
-                pos = pos_info[0]  # 品詞
-                pos_detail = pos_info[1] if len(pos_info) > 1 else ''  # 品詞細分類
-                base_form = token.base_form  # 基本形
-
-                # 以下の条件で単語を抽出
-                if (
-                    # 名詞（数詞、非自立、代名詞以外）
-                    (pos == '名詞' and pos_detail not in ['数', '非自立', '代名詞']) or
-                    # 動詞（基本形を使用、助動詞化したものは除外）
-                    (pos == '動詞' and pos_detail not in ['非自立'] and base_form != token.surface) or
-                    # 形容詞（基本形を使用）
-                    (pos == '形容詞' and pos_detail not in ['非自立']) or
-                    # 形容動詞（基本形を使用）
-                    pos == '形容動詞'
-                ):
-                    # 動詞、形容詞、形容動詞は基本形を使用
-                    word = base_form if pos in ['動詞', '形容詞', '形容動詞'] else token.surface
-                    # 一文字の単語は除外
-                    if len(word) > 1:
-                        text_words.append(word)
-            words.extend(text_words)
-    
-    # 共起関係をカウント
-    co_occurrence = {}
-    for i in range(len(words)):
-        for j in range(i+1, min(i+window_size+1, len(words))):
-            pair = tuple(sorted([words[i], words[j]]))
-            co_occurrence[pair] = co_occurrence.get(pair, 0) + 1
-    
-    return co_occurrence
+    return results
 
 def process_ranked_attributes(df, question):
     """属性データ用：順位付き複数回答の処理（全体分布も返す）"""
@@ -243,84 +150,6 @@ def analyze_yes_no_questions(df, yes_no_questions, attributes):
             response_dist[question] = df[question].value_counts(normalize=True)
     
     return response_dist
-
-def analyze_free_text(df, text_columns):
-    """自由記述の分析"""
-    results = {}
-    
-    for column in text_columns:
-        # テキストの前処理
-        processed_text = preprocess_text(df[column])
-        
-        # テーマの抽出
-        themes = extract_themes(processed_text)
-        
-        # 共起ネットワークの構築
-        co_occurrence = build_co_occurrence_network(processed_text)
-        
-        # ワードクラウドの生成
-        try:
-            # テキストを結合してjanomeで処理
-            combined_text = ' '.join(processed_text)
-            tokens = tokenizer.tokenize(combined_text)
-            # 品詞と活用形を考慮して単語を抽出
-            word_list = []
-            for token in tokens:
-                pos_info = token.part_of_speech.split(',')
-                pos = pos_info[0]  # 品詞
-                pos_detail = pos_info[1] if len(pos_info) > 1 else ''  # 品詞細分類
-                base_form = token.base_form  # 基本形
-
-                # 以下の条件で単語を抽出
-                if (
-                    # 名詞（数詞、非自立、代名詞以外）
-                    (pos == '名詞' and pos_detail not in ['数', '非自立', '代名詞']) or
-                    # 動詞（基本形を使用、助動詞化したものは除外）
-                    (pos == '動詞' and pos_detail not in ['非自立'] and base_form != token.surface) or
-                    # 形容詞（基本形を使用）
-                    (pos == '形容詞' and pos_detail not in ['非自立']) or
-                    # 形容動詞（基本形を使用）
-                    pos == '形容動詞'
-                ):
-                    # 動詞、形容詞、形容動詞は基本形を使用
-                    word = base_form if pos in ['動詞', '形容詞', '形容動詞'] else token.surface
-                    # 一文字の単語は除外
-                    if len(word) > 1:
-                        word_list.append(word)
-            
-            parsed_text = ' '.join(word_list)
-            
-            # フォントパスが利用可能か確認
-            if FONT_PATH and os.path.exists(FONT_PATH):
-                font_path = FONT_PATH
-            else:
-                font_path = None
-                st.warning("日本語フォントが見つかりません。デフォルトフォントを使用します。")
-            
-            wordcloud = WordCloud(
-                width=800,
-                height=400,
-                background_color='white',
-                font_path=font_path,  # 日本語フォントを指定
-                min_font_size=10,
-                max_font_size=100,
-                collocations=False,  # 日本語の場合はFalseに設定
-                regexp=r"[\w']+",  # 単語の区切りを調整
-                prefer_horizontal=0.8,  # 横書きの比率を調整
-                colormap='viridis',  # カラーマップを指定
-                relative_scaling=0.5  # 単語の相対的なサイズを調整
-            ).generate(parsed_text)
-        except Exception as e:
-            st.error(f"ワードクラウドの生成中にエラーが発生しました: {str(e)}")
-            wordcloud = None
-        
-        results[column] = {
-            'themes': themes,
-            'co_occurrence': co_occurrence,
-            'wordcloud': wordcloud
-        }
-    
-    return results
 
 def visualize_analysis(df, attributes, yes_no_questions, text_columns):
     """分析結果の可視化"""
@@ -512,20 +341,10 @@ if uploaded_file is not None:
         for column, analysis in analysis_results['text_analysis'].items():
             st.markdown(f"#### {column}")
             
-            # テーマの表示
-            st.markdown("##### 主要テーマ")
-            for theme in analysis['themes']:
-                st.write(f"- {theme}")
-            
-            # ワードクラウドの表示
-            st.markdown("##### ワードクラウド")
-            if analysis['wordcloud'] is not None:
-                plt.figure(figsize=(10, 5))
-                plt.imshow(analysis['wordcloud'], interpolation='bilinear')
-                plt.axis('off')
-                st.pyplot(plt)
-            else:
-                st.warning("ワードクラウドを生成できませんでした。")
+            # OpenAIによる分析結果の表示
+            st.markdown("##### AIによる分析")
+            for result in analysis['openai_analysis']:
+                st.write(result)
     
     # 4. 総合分析タブ
     with tab_summary:
