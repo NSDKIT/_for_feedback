@@ -32,8 +32,8 @@ try:
         st.error("OpenAI APIキーの形式が正しくありません。'sk-'で始まる必要があります。")
         st.stop()
     
-    # クライアントを初期化（最もシンプルな形式）
-    client = openai.OpenAI()
+    # クライアントを初期化
+    client = openai.OpenAI(api_key=api_key)
     
     # テスト用のAPIコール
     try:
