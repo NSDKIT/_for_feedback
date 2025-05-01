@@ -16,6 +16,13 @@ import itertools
 import os
 import openai
 
+# ページ設定
+st.set_page_config(
+    page_title="採用動画アンケート結果分析",
+    page_icon="📊",
+    layout="wide"
+)
+
 # OpenAI APIキーの設定
 try:
     if "OPENAI_API_KEY" not in st.secrets:
@@ -46,13 +53,6 @@ try:
 except Exception as e:
     st.error(f"OpenAI APIキーの設定中にエラーが発生しました: {str(e)}")
     st.stop()
-
-# ページ設定
-st.set_page_config(
-    page_title="採用動画アンケート結果分析",
-    page_icon="📊",
-    layout="wide"
-)
 
 # 日本語フォントの設定
 plt.rcParams['font.family'] = 'sans-serif'
