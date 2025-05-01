@@ -17,7 +17,6 @@ import itertools
 import os
 from janome.tokenizer import Tokenizer
 import unicodedata
-import japanize_matplotlib
 import urllib.request
 import tempfile
 # import openai
@@ -51,6 +50,11 @@ def get_japanese_font():
         # Google FontsからNoto Sans CJK JPをダウンロード
         font_url = 'https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf'
         urllib.request.urlretrieve(font_url, font_path)
+        
+        # matplotlibのフォント設定を更新
+        plt.rcParams['font.family'] = 'sans-serif'
+        plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP']
+        plt.rcParams['axes.unicode_minus'] = False
         
         return font_path
     except Exception as e:
