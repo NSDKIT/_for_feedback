@@ -544,42 +544,66 @@ if uploaded_file is not None:
     # 4. クロス分析タブ
     with tab_cross:
         def display_cross_analysis(df):
-            tabs = st.tabs([
-                "性別 × 興味のある業界",
-                "性別 × 興味のある職種",
-                "学年 × 興味のある業界",
-                "学年 × 興味のある職種",
-                "出身地 × 興味のある業界",
-                "出身地 × 興味のある職種",
-                "学年 × 憧れている業界"
-            ])
+            # 属性の選択肢を作成（▪︎で始まる列のみ）
+            attribute_columns = [col for col in df.columns if col.startswith('▪︎')]
+            
+            # 2つの属性を選択するセレクトボックス
+            col1, col2 = st.columns(2)
+            with col1:
+                row_attr = st.selectbox(
+                    "1つ目の属性を選択",
+                    options=attribute_columns,
+                    key="row_attr"
+                )
+            with col2:
+                # 1つ目と同じ属性は選択できないようにする
+                remaining_attrs = [col for col in attribute_columns if col != row_attr]
+                col_attr = st.selectbox(
+                    "2つ目の属性を選択",
+                    options=remaining_attrs,
+                    key="col_attr"
+                )
 
-            # 定義: 各クロス集計タブの情報
-            cross_info = [
-                ("▪︎ 性別", "▪︎ 興味のある業界"),
-                ("▪︎ 性別", "▪︎ 興味のある職種"),
-                ("▪︎ 学年", "▪︎ 興味のある業界"),
-                ("▪︎ 学年", "▪︎ 興味のある職種"),
-                ("▪︎ 出身地", "▪︎ 興味のある業界"),
-                ("▪︎ 出身地", "▪︎ 興味のある職種"),
-                ("▪︎ 学年", "▪︎ 憧れている業界")
-            ]
+            try:
+                # クロス集計表の作成
+                ct = pd.crosstab(df[row_attr], df[col_attr])
+                ct = ct.loc[:, ct.sum().sort_values(ascending=False).index]  # カラムを頻度順に
 
-            for tab, (row_attr, col_attr) in zip(tabs, cross_info):
-                with tab:
-                    try:
-                        ct = pd.crosstab(df[row_attr], df[col_attr])
-                        ct = ct.loc[:, ct.sum().sort_values(ascending=False).index]  # カラムを頻度順に
+                # 積み上げ棒グラフの作成
+                fig = px.bar(
+                    ct.T,
+                    barmode="stack",
+                    title=f"{row_attr} × {col_attr}のクロス分析"
+                )
+                fig.update_layout(
+                    xaxis_title=col_attr,
+                    yaxis_title="人数",
+                    showlegend=True,
+                    legend_title=row_attr
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
-                        fig = px.bar(
-                            ct.T,
-                            barmode="stack",
-                            title=f"{row_attr} × {col_attr}"
-                        )
-                        fig.update_layout(xaxis_title=col_attr, yaxis_title="人数")
-                        st.plotly_chart(fig, use_container_width=True)
-                    except Exception as e:
-                        st.warning(f"エラーが発生しました: {str(e)}")
+                # クロス集計表も表示
+                st.markdown("#### クロス集計表")
+                st.dataframe(ct.style.background_gradient(cmap='YlOrRd'))
+
+                # カイ二乗検定の実行
+                chi2, p_value, dof, expected = chi2_contingency(ct)
+                st.markdown("#### 統計分析")
+                st.markdown(f"""
+                - カイ二乗値: {chi2:.2f}
+                - p値: {p_value:.4f}
+                - 自由度: {dof}
+                """)
+                
+                # p値の解釈
+                if p_value < 0.05:
+                    st.markdown("**→ 2つの属性間に有意な関連性が認められます (p < 0.05)**")
+                else:
+                    st.markdown("**→ 2つの属性間に有意な関連性は認められません (p ≥ 0.05)**")
+
+            except Exception as e:
+                st.warning(f"分析中にエラーが発生しました: {str(e)}")
 
         # クロス分析の実行
         display_cross_analysis(df)
